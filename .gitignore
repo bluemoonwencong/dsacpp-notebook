@@ -1,0 +1,14 @@
+.DS_Store
+.DS_Store?
+*.swp
+_site/
+a.out
+*.c~
+
+*.pyc
+
+#to .gitignore file to ignore all directories called node_modules in current folder and any subfolders
+node_modules/
+
+# jupyter notebook
+.ipynb_checkpoints/
