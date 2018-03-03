@@ -60,6 +60,34 @@ tint64 power2(int n) { //幂函数 2^n算法，优化递归版本, n>=0
 } // O(logn) = O(r), r 为输入指数 n 的比特位数
 
 
+//迭代版本
+//习题 [1-14]
+tint64 power2_loop(int n) {
+    tint64 pow = 1; // 累积器初始化为 2^0
+    tint64 p = 2; // 累乘项初始化为 2，对应最低位为 1 的情况
+    while (n>0) { // 迭代 log(n) 轮
+        if (n&1) // 根据当前比特位是否为 1, 决定
+            pow *= p; // 将当前累乘项计入累积器
+        n >>= 1; //指数减半
+        p *= p; //累乘项自乘
+    }
+    return pow; 
+} // O(logn) = O(r), r 为输入指数 n 的比特位数
+
+//而一般性的 a^n 计算如下 
+tint64 power_loop(tint64 a, int n) { // a^n 算法： n >= 0
+    tint64 pow = 1; // 累积器初始化为 2^0
+    tint64 p = a; // 累乘项初始化为 a，对应最低位为 1 的情况
+    while (n>0) { // 迭代 log(n) 轮
+        if (n&1) // 根据当前比特位是否为 1, 决定
+            pow *= p; // 将当前累乘项计入累积器
+        n >>= 1; //指数减半
+        p *= p; //累乘项自乘
+    }
+    return pow; 
+} // O(logn) = O(r), r 为输入指数 n 的比特位数
+
+
 // 计算 Fibonacci 数列的第 n 项，二分递归版本，O(2^n)
 tint64 fibonacci_binary_recursion(int n) {
     return (n<2) ? 
@@ -119,7 +147,9 @@ int main() {
     }
     printf("\n");
 
-    printf("2^10=%lld\n", power2(10));
+    printf("power2: 2^10=%lld\n", power2(10));
+    printf("power2_loop: 2^10=%lld\n", power2_loop(10));
+    printf("power_loop(3, 3): 3^3=%lld\n", power_loop(3, 3));
 
     printf("fibonacci_binary_recursion(10):%lld\n", fibonacci_binary_recursion(10));
     tint64 pre;
