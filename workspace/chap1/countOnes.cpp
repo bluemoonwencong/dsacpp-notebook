@@ -18,7 +18,7 @@ int countOnes(unsigned int n) { // 统计整数 n 的二进制展开中数位 1 
  * 改进版本：操作次数线性正比于 n 的二进制展开中数位 1 的实际数目。
  */
 
-int countOnes1(unsigned int n) { // O(ones) 正比于数位 1 的总数
+int countOnes1(unsigned int n) { // O(countOnes(n)) 正比于数位 1 的总数
     int ones = 0;
     while (n>0) {
         ones ++; //计数，至少有一位为 1
@@ -26,6 +26,8 @@ int countOnes1(unsigned int n) { // O(ones) 正比于数位 1 的总数
     }
     return ones;
 }
+
+
 
 int main() {
     unsigned int n = 441; // 110111001

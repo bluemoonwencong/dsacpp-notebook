@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <iostream>
+using namespace std;
+
 
 // 数组求和算法，线性递归版
 int sum_linear_recursion(int A[], int n) {
@@ -151,8 +154,10 @@ int main() {
     printf("power2_loop: 2^10=%lld\n", power2_loop(10));
     printf("power_loop(3, 3): 3^3=%lld\n", power_loop(3, 3));
 
-    printf("fibonacci_binary_recursion(10):%lld\n", fibonacci_binary_recursion(10));
+    //printf("fibonacci_binary_recursion(64):%lld\n", fibonacci_binary_recursion(64)); // run too long
     tint64 pre;
-    printf("fibonacci_linear_recursion(10, pre):%lld\n", fibonacci_linear_recursion(10, pre));
-    printf("fibonacci_loop_version(10):%lld\n", fibonacci_loop_version(10));
+    printf("fibonacci_linear_recursion(64, pre):%lld\n", fibonacci_linear_recursion(64, pre));
+    printf("fibonacci_loop_version(64):%lld\n", fibonacci_loop_version(64));
+    
+    cout << "hello";
 }
