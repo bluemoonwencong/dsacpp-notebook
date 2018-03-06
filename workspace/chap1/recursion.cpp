@@ -120,6 +120,38 @@ tint64 fibonacci_loop_version(int n) {
     return f;
 }
 
+
+// 习题 1-22
+class Fib { //
+    private:
+        int f, g; // f=fib(k-1), g=fib(k), 均为 int, 很快会溢出
+    public:
+        Fib(int n) { //初始化为不小于 n 的最小 Fabonacci 项，如 Fib(6)=8
+            f = 0;
+            g = 1;
+            while ( g < n)
+                next();
+        }
+
+        int get() { // 获取当前 Fibonacci 项， O(1) 时间
+            return g;
+        }
+
+        int next() { //下一项, O(1) 时间
+            g += f;
+            f = g - f;
+            return g;
+        }
+        
+        int prev() { //前一项, O(1) 时间
+            f 
+        }
+}
+
+Fib::Fib(int n) {
+    this.
+}
+
 int main() {
     int A[] = { 1, 2, 3, 4, 5 };
     int n = 5;
