@@ -283,7 +283,7 @@ template <template T> int Vector<T>::uniquify(){
     Rank i = 0, j = 0; //各对互异 "相邻“ 元素的秩
     while (++j < _size) //逐一扫描，直到末元素
         if (_elem[i] != _elem[j]) //跳过雷同者
-            _elem[i++] = _elem[j]; //发现不同元素时，向前移至紧邻于前者右侧
+            _elem[++i] = _elem[j]; //发现不同元素时，向前移至紧邻于前者右侧
 
     _size = ++i; //直接截除尾部多余元素
     shrink();
@@ -307,6 +307,53 @@ template <typename T> static Rank binSearch(T* A, T const& e, Rank lo, Rank hi) 
             lo = mi + 1; //深入后半段
         else
             return mi; //在 mi 处命中
+    } //成功查找可以提前终止
+    return -1; //查找失败
+} //有多个命中元素时，不能保证返回秩最大者； 查找失败时，简单返回 -1， 而不能指示失败的位置
+
+
+// 习题 [1-22]
+class Fib { // Fibonacci 数列类
+    private:
+        int f, g; // fib(k-1), fib(k), int 型很快会溢出
+    public:
+        Fib(int n) { //初始化为不小于 n 的最小 Fibonacci 项， 如 Fib(6)=8, O(logn)
+            f = 0; g = 1; // fib(0), fib(1)
+            while (g < n) {
+                next();
+            }
+        }
+
+        int get() { //获取当前 Fibonacci 项，如 Fib(8).get() = 8, O(1)
+            return g;
+        }
+
+        int next() { //转到下一项，如 Fib(8).next() = 13, O(1)
+            g += f;
+            f = g - f;
+            return g;
+        }
+
+        int prev() { //转到上一项，如 Fib(8).prev() = 5, O(1)
+            f = g - f;
+            g -= f;
+            return g;
+        }
+};
+
+// Fibonacci 查找版本A：在有序向量的区间 [lo, hi) 内查找元素 e, 0 <= lo <= hi <= _size
+template <typename T> static Rank fibSearch(T* A, T const& e, Rank lo, Rank hi) {
+    Fib fib(hi-lo); //用 O(log_phi(hi-lo) 时间创建 Fib 数列，值不大于 hi-lo
+    while (lo < hi) { //每步迭代可能要做两次比较，有三个分支
+        while (hi-lo < fib.get())
+            fib.prev(); //通过向前顺序查找（分摊O(1)) 至多迭代 1 次
+        Rank mi = lo + fib.get() - 1; //确定形如 Fib(k)-1 的轴点
+        if (e < A[mi])
+            hi = mi;
+        else if (A[mi] < e)
+            lo = mi + 1;
+        else
+            return mi; //命中
     } //成功查找可以提前终止
     return -1; //查找失败
 } //有多个命中元素时，不能保证返回秩最大者； 查找失败时，简单返回 -1， 而不能指示失败的位置
