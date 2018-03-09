@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <iostream>
 using namespace std;
 
@@ -194,7 +195,7 @@ template <typename T> static bool lt(T& a, T& b) { //less than
 template <typename T> static bool eq(T* a, T* b) { //equal
     return eq(*a, *b);
 }
-template <typename T> static bool lt(T& a, T& b) { //equal
+template <typename T> static bool eq(T& a, T& b) { //equal
     return a == b;
 }
 
@@ -230,7 +231,7 @@ template <typename T> int Vector<T>::remove(Rank lo, Rank hi) { //删除区间 [
     return hi-lo; //返回被删除元素的数目
 }
 
-template <typename T> int Vector<T>::remove(Rank r) { //删除向量中秩为 r 的元素， 0 <= r < size
+template <typename T> T Vector<T>::remove(Rank r) { //删除向量中秩为 r 的元素， 0 <= r < size
     T e = _elem[r];
     remove(r, r+1); //调用区间删除算法，等效于对区间 [r, r+1) 的删除
     return e; //返回被删除元素
@@ -251,7 +252,7 @@ template <typename T> void Vector<T>::traverse(void (*visit)(T&)){ //利用函�
         visit(_elem[i]);
 }
 
-template <typename T> template <template VST> //元素类型、操作器
+template <typename T> template <typename VST> //元素类型、操作器
 void Vector<T>::traverse(VST& visit) { //利用函数对象机制的遍历
     for (int i=0; i<_size; i++)
         visit(_elem[i]);
@@ -269,7 +270,7 @@ template <typename T> int Vector<T>::disordered() const { //返回向量中逆�
 
 /*
 //有序向量重复元素删除算法（低效版本）
-template <template T> int Vector<T>::uniquify(){
+template <typename T> int Vector<T>::uniquify(){
     int oldSize = _size;
     int i = 1;
     while (i<_size) //自前向后，逐一比对各对相邻元素
@@ -279,7 +280,7 @@ template <template T> int Vector<T>::uniquify(){
 */
 
 //有序向量重复元素删除算法（高效版本）
-template <template T> int Vector<T>::uniquify(){
+template <typename T> int Vector<T>::uniquify(){
     Rank i = 0, j = 0; //各对互异 "相邻“ 元素的秩
     while (++j < _size) //逐一扫描，直到末元素
         if (_elem[i] != _elem[j]) //跳过雷同者
@@ -310,6 +311,26 @@ template <typename T> static Rank binSearch(T* A, T const& e, Rank lo, Rank hi) 
     } //成功查找可以提前终止
     return -1; //查找失败
 } //有多个命中元素时，不能保证返回秩最大者； 查找失败时，简单返回 -1， 而不能指示失败的位置
+
+//二分查找版本B：在有序向量的区间 [lo, hi) 内查找元素 e, 0 <= lo <= hi <= _size
+template <typename T> static Rank binSearch_VB(T* A, T const& e, Rank lo, Rank hi) {
+    //循环在区间不足两个时中止
+    while (1 < hi-lo) { //每步迭代仅做一次比较判断，有两个分支;成功查找不能提前终止
+        Rank mi = (lo + hi) >> 1; //以中点为轴点
+        (e < A[mi]) ? hi = mi : lo = mi; //经比较后确定深入 [lo, mi) 或 [mi, hi)
+    } // 出口时 lo+1 == hi, 即区间中只剩下一个元素 A[lo]
+    return (e == A[lo]) ? lo : -1; //查找成功时返回对应的秩，否则统一返回 -1 
+} //有多个命中元素时，不能保证返回秩最大者； 查找失败时，简单返回 -1， 而不能指示失败的位置
+
+
+//二分查找版本C：在有序向量的区间 [lo, hi) 内查找元素 e, 0 <= lo <= hi <= _size
+template <typename T> static Rank binSearch_VC(T* A, T const& e, Rank lo, Rank hi) {
+    while (lo < hi) { //每步迭代仅做一次比较判断，有两个分支
+        Rank mi = (lo + hi) >> 1; //以中点为轴点
+        (e < A[mi]) ? hi = mi : lo = mi + 1; //经比较后确定深入 [lo, mi) 或 (mi, hi)
+    } //成功查找不能提前终止
+    return --lo; //循环结束时，lo 为大于 e 的元素的最小秩，故 lo-1 即不大于 e  的元素的最大秩
+} //有多个命中元素时，总能保证返回秩最大者;查找失败时，能够返回失败的位置
 
 
 // 习题 [1-22]
@@ -357,6 +378,76 @@ template <typename T> static Rank fibSearch(T* A, T const& e, Rank lo, Rank hi) 
     } //成功查找可以提前终止
     return -1; //查找失败
 } //有多个命中元素时，不能保证返回秩最大者； 查找失败时，简单返回 -1， 而不能指示失败的位置
+
+
+template <typename T> void Vector<T>::sort(Rank lo, Rank hi) { //向量区间 [lo, hi) 排序
+    switch(rand() % 5) { // 随机选取排序算法
+        case 1: bubbleSort(lo, hi); break;
+        case 2: mergeSort(lo, hi); break;
+        //case 3: selectionSort(lo, hi); break;
+        //case 4: heapSort(lo, hi); break;
+        //default : quickSort(lo, hi); break;
+        default : bubbleSort(lo, hi); break;
+    }
+}
+
+template <typename T> //向量的起泡排序
+void Vector<T>::bubbleSort(Rank lo, Rank hi) //assert: 0 <= lo < hi <= size
+{
+    while(!bubble(lo, hi--)) //逐趟扫描交换，直到全序
+        ; // pass
+}
+
+template <typename T> bool Vector<T>::bubble(Rank lo, Rank hi) { //一趟扫描交换
+    bool sorted = true; //整体有序标志
+    while (++lo < hi) //自左向右，逐一检查各对相邻元素
+        if (_elem[lo-1] > _elem[lo]) { //若逆序，则
+            sorted = false; //意味着尚末整体有序，并需要
+            swap(_elem[lo-1], _elem[lo]);
+        }
+    return sorted;
+}
+
+template <typename T> //向量归并排序
+void Vector<T>::mergeSort(Rank lo, Rank hi) { // 0 <= lo < hi <= size
+    if (hi-lo < 2) //单元素区间自然是有序
+        return;
+
+    int mi = (lo+hi) >> 1; //中点为界
+    mergeSort(lo, mi); mergeSort(mi, hi); //分别对前后半段排序
+    merge(lo, mi, hi); //归并
+}
+
+template <typename T> //有序向量的归并
+void Vector<T>::merge(Rank lo, Rank mi, Rank hi){ //以 mi 为界，合并有序子向量 [lo, mi), [mi, hi)
+    T* A = _elem + lo; //前子向量的首地址，合并后的结果地址也从这开始
+
+    int first_len = mi-lo;
+    T* B = new T[first_len]; //用于临时存放前子向量
+    for (Rank i=0; i<first_len; B[i] = A[i++])
+        ; //pass
+
+    int second_len = hi-mi;
+    T* C = _elem + mi; //后子向量的首地址
+
+    for (Rank i=0, j=0, k=0; (j<first_len) || (j<second_len); ){ //将 B[j] 和 C[k] 中的小者续至 A 末尾
+
+        // 前子向量还有元素未处理时，
+        //   1. 如果后子向量已经处理完毕，或者
+        //   2. 其第一个元素小于后子向量的第一个元素
+        if ( (j<first_len) && ( !(k<second_len) || (B[j]<=C[k]) ) )
+            A[i++] = B[j++];
+
+        // 后子向量还有元素未处理时，
+        //   1. 如果前子向量已经处理完毕，或者
+        //   2. 其第一个元素小于前子向量的第一个元素
+        if ( (k<second_len) && ( !(j<first_len) || (C[k] < B[j]) ) )
+            A[i++] = C[k++];
+    }
+
+    delete [] B;
+} //归并后得到完整的有序向量 [lo, hi)
+
 
 int main() {
 
