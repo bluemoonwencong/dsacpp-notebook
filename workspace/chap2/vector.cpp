@@ -21,6 +21,10 @@ template <typename T> class Vector { //向量模板类
 
         void bubbleSort(Rank lo, Rank hi); //起泡排序算法
 
+        Rank bubble2(Rank lo, Rank hi); //扫描交换, 优化
+
+        void bubbleSort2(Rank lo, Rank hi); //起泡排序算法. 优化版本
+
         Rank max(Rank lo, Rank hi); //选取最大元素
 
         void selectionSort(Rank lo, Rank hi); //选择排序算法
@@ -367,7 +371,7 @@ template <typename T> static Rank fibSearch(T* A, T const& e, Rank lo, Rank hi) 
     Fib fib(hi-lo); //用 O(log_phi(hi-lo) 时间创建 Fib 数列，值不大于 hi-lo
     while (lo < hi) { //每步迭代可能要做两次比较，有三个分支
         while (hi-lo < fib.get())
-            fib.prev(); //通过向前顺序查找（分摊O(1)) 至多迭代 1 次
+            fib.prev(); //通过向前顺序查找（分摊O(1))
         Rank mi = lo + fib.get() - 1; //确定形如 Fib(k)-1 的轴点
         if (e < A[mi])
             hi = mi;
@@ -406,6 +410,26 @@ template <typename T> bool Vector<T>::bubble(Rank lo, Rank hi) { //一趟扫描�
             swap(_elem[lo-1], _elem[lo]);
         }
     return sorted;
+}
+
+//优化的起泡排序
+//每趟扫描后，记录最右侧的逆序对位置，
+//从而下趟可直接忽略后面已经就序的元素
+template <typename T>
+void Vector<T>::bubbleSort2(Rank lo, Rank hi)
+{
+    while (lo < (hi = bubble2(lo, hi)))
+        ; //pass
+}
+
+template <typename T> Rank Vector<T>::bubble2(Rank lo, Rank hi) {
+    Rank last = lo; //最右侧的逆序对初始化为 [lo-1, lo]
+    while (++lo < hi) //自左向右，逐一检查各对相邻元素
+        if (_elem[lo-1] > _elem[lo]) { //若逆序，则
+            last = lo; //更新最右侧逆序对位置
+            swap(_elem[lo-1], _elem[lo]);
+        }
+    return last;
 }
 
 template <typename T> //向量归并排序
