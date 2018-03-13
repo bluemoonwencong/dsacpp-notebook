@@ -19,19 +19,14 @@ template <typename T> class Vector { //向量模板类
 
         bool bubble(Rank lo, Rank hi); //扫描交换
 
-        void bubbleSort(Rank lo, Rank hi); //起泡排序算法
-
-        Rank bubble2(Rank lo, Rank hi); //扫描交换, 优化
-
-        void bubbleSort2(Rank lo, Rank hi); //起泡排序算法. 优化版本
+        Rank bubble_tuned_for_tail_in_order(Rank lo, Rank hi);
+        Rank bubble_tuned_for_header_in_order(Rank lo, Rank hi);
 
         Rank max(Rank lo, Rank hi); //选取最大元素
 
         void selectionSort(Rank lo, Rank hi); //选择排序算法
 
         void merge(Rank lo, Rank mi, Rank hi); //归并算法
-
-        void mergeSort(Rank lo, Rank hi); //归并排序算法
 
         Rank partition(Rank lo, Rank hi); //轴点构造算法
 
@@ -106,11 +101,30 @@ template <typename T> class Vector { //向量模板类
             return insert(_size, e);
         }
 
+        void put(Rank r, T const& e) {
+            _elem[r] = e;
+        }
+
+        T get(Rank r) {
+            return _elem[r];
+        }
+
         void sort(Rank lo, Rank hi); //对 [lo, hi) 排序
 
         void sort() { //整体排序
             return sort(0, _size);
         }
+
+        void bubbleSort(Rank lo, Rank hi); //起泡排序算法
+        void bubbleSort(); //起泡排序算法
+        void bubbleSort_tuned_for_tail_in_order(Rank lo, Rank hi); //起泡排序算法. 优化版本
+        void bubbleSort_tuned_for_tail_in_order(); //起泡排序算法. 优化版本 ，适合末尾元素大部分就位的情况
+        void bubbleSort_tuned_for_header_in_order(Rank lo, Rank hi); //起泡排序算法. 优化版本
+        void bubbleSort_tuned_for_header_in_order(); //起泡排序算法. 优化版本 ，适合首部元素大部分就位的情况
+        void bubbleSort_tuned_for_header_and_tail_in_order(); //起泡排序算法. 优化版本
+        void mergeSort(Rank lo, Rank hi); //归并排序算法
+        void mergeSort(); //归并排序算法
+
 
         void unsort(Rank lo, Rank hi); //对 [lo, hi) 置乱
 
@@ -127,6 +141,9 @@ template <typename T> class Vector { //向量模板类
         void traverse(void (*)(T&)); //遍历（使用函数指针，只读或局部性修改）
 
         template <typename VST> void traverse(VST&); //遍历（使用函数对象，可全局性修改）
+
+        //输出全部元素
+        void report(string title);
 }; //Vector
 
 template <typename T> //元素类型
@@ -262,6 +279,7 @@ void Vector<T>::traverse(VST& visit) { //利用函数对象机制的遍历
         visit(_elem[i]);
 }
 
+
 //有序向量甄别算法
 template <typename T> int Vector<T>::disordered() const { //返回向量中逆序相邻元素对的总数
     int n = 0; //计数器
@@ -294,14 +312,6 @@ template <typename T> int Vector<T>::uniquify(){
     shrink();
     return j - i; //返回删除元素总数
 }
-
-//有序向量的区间 [lo, hi) 内，确定不大于 e 的最后一个节点的秩
-template <typename T>
-Rank Vector<T>::search(T const& e, Rank lo, Rank hi) const { //assert: 0 <= lo < hi <= _size
-    return (rand() % 2) ? // 按各 50%的概率随机使用
-        binSearch(_elem, e, lo, hi) : fibSearch(_elem, e, lo, hi); //二分查找或 Fibonacci 查找
-}
-
 //二分查找版本A：在有序向量的区间 [lo, hi) 内查找元素 e, 0 <= lo <= hi <= _size
 template <typename T> static Rank binSearch(T* A, T const& e, Rank lo, Rank hi) {
     while (lo < hi) { //每步迭代可能要做两次比较判断，有三个分支
@@ -384,6 +394,17 @@ template <typename T> static Rank fibSearch(T* A, T const& e, Rank lo, Rank hi) 
 } //有多个命中元素时，不能保证返回秩最大者； 查找失败时，简单返回 -1， 而不能指示失败的位置
 
 
+//有序向量的区间 [lo, hi) 内，确定不大于 e 的最后一个节点的秩
+template <typename T>
+Rank Vector<T>::search(T const& e, Rank lo, Rank hi) const { //assert: 0 <= lo < hi <= _size
+    return binSearch_VC(_elem, e, lo, hi);
+    /*
+    return (rand() % 2) ? // 按各 50%的概率随机使用
+        binSearch(_elem, e, lo, hi) : fibSearch(_elem, e, lo, hi); //二分查找或 Fibonacci 查找
+    */
+}
+
+
 template <typename T> void Vector<T>::sort(Rank lo, Rank hi) { //向量区间 [lo, hi) 排序
     switch(rand() % 5) { // 随机选取排序算法
         case 1: bubbleSort(lo, hi); break;
@@ -393,6 +414,13 @@ template <typename T> void Vector<T>::sort(Rank lo, Rank hi) { //向量区间 [l
         //default : quickSort(lo, hi); break;
         default : bubbleSort(lo, hi); break;
     }
+}
+
+
+template <typename T> //向量的起泡排序
+void Vector<T>::bubbleSort() //assert: 0 <= lo < hi <= size
+{
+    bubbleSort(0, size());
 }
 
 template <typename T> //向量的起泡排序
@@ -412,17 +440,53 @@ template <typename T> bool Vector<T>::bubble(Rank lo, Rank hi) { //一趟扫描�
     return sorted;
 }
 
-//优化的起泡排序
+//优化的起泡排序，适合于最右侧多数元素已经就位的情况
 //每趟扫描后，记录最右侧的逆序对位置，
 //从而下趟可直接忽略后面已经就序的元素
+//自右向左扫描
+//习题[2-25] b)
 template <typename T>
-void Vector<T>::bubbleSort2(Rank lo, Rank hi)
+void Vector<T>::bubbleSort_tuned_for_tail_in_order()
 {
-    while (lo < (hi = bubble2(lo, hi)))
+    bubbleSort_tuned_for_tail_in_order(0, size());
+}
+
+template <typename T>
+void Vector<T>::bubbleSort_tuned_for_tail_in_order(Rank lo, Rank hi)
+{
+    while ((lo=bubble_tuned_for_tail_in_order(lo, hi)) < hi)
         ; //pass
 }
 
-template <typename T> Rank Vector<T>::bubble2(Rank lo, Rank hi) {
+template <typename T> Rank Vector<T>::bubble_tuned_for_tail_in_order(Rank lo, Rank hi) {
+    Rank last = hi; //最左侧的逆序对初始化为 [hi-2, hi-1]
+    hi = hi-1;
+    while (--hi >= lo) //自右向左，逐一检查各对相邻元素
+        if (_elem[hi] > _elem[hi+1]) { //若逆序，则
+            last = hi; //更新最左侧逆序对位置
+            swap(_elem[hi], _elem[hi+1]);
+        }
+    return last;
+}
+
+//优化的起泡排序，适合于最左侧多数元素已经就位的情况
+//每趟扫描后，记录最左侧的逆序对位置，
+//从而下趟可直接忽略后面已经就序的元素
+//自左向右扫描
+template <typename T>
+void Vector<T>::bubbleSort_tuned_for_header_in_order()
+{
+    bubbleSort_tuned_for_header_in_order(0, size());
+}
+
+template <typename T>
+void Vector<T>::bubbleSort_tuned_for_header_in_order(Rank lo, Rank hi)
+{
+    while (lo < (hi = bubble_tuned_for_header_in_order(lo, hi)))
+        ; //pass
+}
+
+template <typename T> Rank Vector<T>::bubble_tuned_for_header_in_order(Rank lo, Rank hi) {
     Rank last = lo; //最右侧的逆序对初始化为 [lo-1, lo]
     while (++lo < hi) //自左向右，逐一检查各对相邻元素
         if (_elem[lo-1] > _elem[lo]) { //若逆序，则
@@ -430,6 +494,17 @@ template <typename T> Rank Vector<T>::bubble2(Rank lo, Rank hi) {
             swap(_elem[lo-1], _elem[lo]);
         }
     return last;
+}
+
+//习题[2-25] c) 首部和末尾的连续元素都已就位，只有中间的元素没有就位, O(n)
+template <typename T> 
+void Vector<T>::bubbleSort_tuned_for_header_and_tail_in_order()
+{
+    Rank lo = bubble_tuned_for_tail_in_order(0, size());
+    Rank hi = bubble_tuned_for_header_in_order(0, size());
+    cout << "lo=" << lo <<endl;
+    cout << "hi=" << hi <<endl;
+    bubbleSort(lo, hi);
 }
 
 template <typename T> //向量归并排序
@@ -440,6 +515,12 @@ void Vector<T>::mergeSort(Rank lo, Rank hi) { // 0 <= lo < hi <= size
     int mi = (lo+hi) >> 1; //中点为界
     mergeSort(lo, mi); mergeSort(mi, hi); //分别对前后半段排序
     merge(lo, mi, hi); //归并
+}
+
+
+template <typename T> //向量归并排序
+void Vector<T>::mergeSort() {
+    mergeSort(0, size());
 }
 
 template <typename T> //有序向量的归并
@@ -454,7 +535,7 @@ void Vector<T>::merge(Rank lo, Rank mi, Rank hi){ //以 mi 为界，合并有序
     int second_len = hi-mi;
     T* C = _elem + mi; //后子向量的首地址
 
-    for (Rank i=0, j=0, k=0; (j<first_len) || (j<second_len); ){ //将 B[j] 和 C[k] 中的小者续至 A 末尾
+    for (Rank i=0, j=0, k=0; (j<first_len) || (k<second_len); ){ //将 B[j] 和 C[k] 中的小者续至 A 末尾
 
         // 前子向量还有元素未处理时，
         //   1. 如果后子向量已经处理完毕，或者
@@ -472,8 +553,86 @@ void Vector<T>::merge(Rank lo, Rank mi, Rank hi){ //以 mi 为界，合并有序
     delete [] B;
 } //归并后得到完整的有序向量 [lo, hi)
 
+template <typename T>
+void Vector<T>::report(string title){
+    cout << "Vector(" << title << "): ";
+    for (int i=0; i<_size; i++)
+        cout << _elem[i] << ", ";
+    cout << endl;
+}
+
+
 
 int main() {
-
     cout << "hello" << endl;
+
+    // Vector test
+    Vector<int> v = Vector<int>();
+    v.report("Init"); 
+    v.insert(0, 9);
+    v.insert(0, 4);
+    v.report("insert(0,4), insert(0, 4)"); // 4, 9
+    v.insert(1, 5);
+    v.report("insert(1,5)"); //4,5,9
+    v.put(1, 2);
+    v.report("put(1,2)"); //4,2,9
+    cout << "get(2)=" << v.get(2) << endl; //9
+    v.insert(3,6);
+    v.report("insert(3,6)"); //4,2,9,6
+    v.insert(1, 7);
+    v.report("insert(1, 7)"); //4,7,2,9,6
+    v.remove(2);
+    v.report("remove(2)"); //4,7,9,6
+    v.insert(1,3);
+    v.report("insert(1,3)"); //4,3,7,9,6
+    v.insert(3, 4);
+    v.report("insert(3, 4)"); //4,3,7,4,9,6
+    cout << "size()=" << v.size() << endl;
+
+    cout << "disordered()=" << v.disordered() << endl; // 3
+    cout << "find(9)=" << v.find(9) << endl; //4
+    cout << "find(5)=" << v.find(5) << endl; //-1
+
+    v.sort();
+    v.report("sorted"); //3,4,4,6,7,9
+
+    v.unsort();
+    v.report("unsort");
+    v.bubbleSort();
+    v.report("bubbleSort"); //3,4,4,6,7,9
+
+    v.unsort();
+    v.report("unsort");
+    v.bubbleSort_tuned_for_tail_in_order();
+    v.report("bubbleSort_tuned_for_tail_in_order"); //3,4,4,6,7,9
+
+    v.unsort();
+    v.report("unsort");
+    v.bubbleSort_tuned_for_header_in_order();
+    v.report("bubbleSort_tuned_for_header_in_order"); //3,4,4,6,7,9
+
+    v.unsort();
+    v.report("unsort");
+    v.bubbleSort_tuned_for_header_and_tail_in_order();
+    v.report("bubbleSort_tuned_for_header_and_tail_in_order"); //3,4,4,6,7,9
+
+
+    v.unsort();
+    v.report("unsort");
+    v.mergeSort();
+    v.report("mergeSort"); //3,4,4,6,7,9
+
+    cout << "disordered()=" << v.disordered() << endl; // 0
+
+    cout << "search(1)=" << v.search(1) << endl; //-1
+    cout << "search(4)=" << v.search(4) << endl; //2
+    cout << "search(8)=" << v.search(8) << endl; //4
+    cout << "search(9)=" << v.search(9) << endl; //5
+    cout << "search(10)=" << v.search(10) << endl; //5
+
+    v.uniquify();
+    v.report("uniquified");
+
+    cout << "search(9)=" << v.search(9) << endl; //4
+
 }
