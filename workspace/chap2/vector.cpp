@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <iostream>
 using namespace std;
 
@@ -562,6 +564,238 @@ void Vector<T>::report(string title){
 }
 
 
+//习题 2-34 位图 Bitmap b)
+class Bitmap {
+    private:
+        char* M; int N; //比特图所存放的空间 M[], 容量为 N * sizeof(char) * 8 比特。
+
+    protected:
+        void init(int n) {
+            M = new char[N = (n+7)/8]; //申请能容纳 n 个比特的最少字节
+            memset(M, 0, N);
+        }
+
+    public:
+        Bitmap(int n=8) {
+            init(n);
+        }
+
+        Bitmap(char* file, int n=8) { //从指定文件中读取比特图
+            init(n);
+            FILE* fp = fopen(file, "r");
+            fread(M, sizeof(char), N, fp);
+            fclose(fp);
+        }
+
+        ~Bitmap() {
+            delete [] M;
+            M = NULL;
+        }
+
+        void set(int k){ //将第 k 位置设置为 true
+            expand(k);
+
+            /*
+             * k>>3 确定该位在哪个字节
+             * k&0x07 确定字节中的位置
+             * （0x80 >> (k & 0x07)) 将字节中的该位置 1
+             */
+            M[k >> 3] |= (0x80 >> (k & 0x07) );
+        }
+
+        void clear(int k){ //将第 k 位置设置为 false
+            expand(k);
+
+            /*
+             * k>>3 确定该位在哪个字节
+             * k&0x07 确定字节中的位置
+             * (0x80 >> (k & 0x07)) 将字节中的该位置 1
+             * ~(0x80 >> (k & 0x07)) 将字节中的该位置 0
+             */
+            M[k >> 3] &= ~(0x80 >> (k & 0x07));
+        }
+
+        bool test(int k){ //测试第 k 位是否为 true
+            expand(k);
+
+            /*
+             * k>>3 确定该位在哪个字节
+             * k&0x07 确定字节中的位置
+             * （0x80 >> (k & 0x07)) 将字节中的该位置 1
+             */
+            return M[k >> 3] & (0x80 >> (k & 0x07) );
+        }
+
+        void dump(char* file) { //将位图整体导出至指定的文件，以便以后的新位图批量初始化
+            FILE* fp = fopen(file, "w");
+            fwrite(M, sizeof(char), N, fp);
+            fclose(fp);
+        }
+
+        char* bits2string(int n) { //将前 n 位转换为字符串
+            expand(n-1); //此时可能被访问的最高位为 bit[n-1]
+            char* s = new char[n+1];
+            s[n] = '\0'; //字符串所占空间，由上层调用者负责释放
+            for (int i=0; i<n; i++)
+                s[i] = test(i) ? '1' : '0';
+            return s;
+        }
+
+        void expand(int k) { //若被访问的 Bitmap[k] 已出界，则需扩容
+            if (k < 8*N)
+                return;
+            int oldN = N;
+            char* oldM = M;
+            init(2*k); //与向量类似，加倍策略
+            memcpy(M, oldM, oldN);
+            delete [] oldM;
+        }
+};
+
+//习题 2-34 c)
+//创建 Bitmap 对象时，如何节省下为初始化所有元素所需的时间？
+//设位置只需提供 test() 和 set() 接口，暂时不需要 clear() 接口，
+class Bitmap_without_init { //以空间换时间，仅允许插入，不支持删除
+    private:
+        Rank* F; Rank N; //规模为 N 的向量 F，
+        Rank* T; Rank top; //容量为 N 和栈
+
+    protected:
+        inline bool valid(Rank r){ return (0 <= r) && (r < top); }
+
+    public:
+        Bitmap_without_init(Rank n=8) {
+            N = n;
+            F = new Rank[N]; T = new Rank[N]; // 在 O(1) 内隐式地初始化
+            top = 0; 
+        }
+
+        ~Bitmap_without_init(){ delete [] F; delete [] T; }
+
+        //接口
+        inline void set(Rank k) {
+            if (test(k))
+                return;
+            //要设置的位置 k，对应的 F[k] 处将值设置为栈的栈顶指针，
+            //同时在栈中将栈顶指针处将值设置为 k，建立校验环
+            //从而当要 test k 位置时，取出对应的 F[k] 处的值，即为当时
+            //保存的栈顶指针，再从栈中取出值，如果值和 k 相同，则
+            // k 位有设置值。
+            T[top] = k; F[k] = top; ++top; //建立校验环
+        }
+
+        inline bool test(Rank k) {
+            return valid(F[k]) && ( k == T[ F[k] ] );
+        }
+
+        char* bits2string() { //将前 n 位转换为字符串
+            char* s = new char[N+1];
+            s[N] = '\0'; //字符串所占空间，由上层调用者负责释放
+            for (int i=0; i<N; i++)
+                s[i] = test(i) ? '1' : '0';
+
+            return s;
+        }
+
+};
+
+//习题 2-34 c)
+//创建 Bitmap 对象时，如何节省下为初始化所有元素所需的时间？
+//如果还要支持 clear() 接口，则必须有效辨别两种无标记的位：从末标记过的
+//和曾经标记后又被清除的。
+//下面的实现中将清除后的 k 位，其对应的栈中的值约定为 -1-k。
+class Bitmap_without_init2 { //以空间换时间，仅允许插入，支持删除
+    private:
+        Rank* F; Rank N; //规模为 N 的向量 F，
+        Rank* T; Rank top; //容量为 N 和栈
+
+    protected:
+        inline bool valid(Rank r){ return (0 <= r) && (r < top); }
+        inline bool erased(Rank k) {// 判断 [k] 是否曾经被标记过，后又被清除
+            return valid (F[k]) &&
+                (T[ F[k] ] == -1-k); //清除后的栈中值约定为 -1-k
+        }
+
+    public:
+        Bitmap_without_init2(Rank n=8) {
+            N = n;
+            F = new Rank[N]; T = new Rank[N]; // 在 O(1) 内隐式地初始化
+            top = 0; 
+        }
+
+        ~Bitmap_without_init2(){ delete [] F; delete [] T; }
+
+        //接口
+        inline void set(Rank k) {
+            if (test(k))
+                return;
+            //要设置的位置 k，对应的 F[k] 处将值设置为栈的栈顶指针，
+            //同时在栈中将栈顶指针处将值设置为 k，建立校验环
+            //从而当要 test k 位置时，取出对应的 F[k] 处的值，即为当时
+            //保存的栈顶指针，再从栈中取出值，如果值和 k 相同，则
+            // k 位有设置值。
+            //
+            if (!erased(k)) //若初始标记，则创建新校验环，
+                F[k] = top++; //
+            T[ F[k] ] = k;  //若系曾经标记后被清除的，则恢复原校验环
+        }
+
+        inline void clear(Rank k) {
+            if (test(k))
+                T[ F[k] ] = -1-k;
+        }
+
+        inline bool test(Rank k) {
+            return valid(F[k]) && ( k == T[ F[k] ] );
+        }
+
+        char* bits2string() { //将前 n 位转换为字符串
+            char* s = new char[N+1];
+            s[N] = '\0'; //字符串所占空间，由上层调用者负责释放
+            for (int i=0; i<N; i++)
+                s[i] = test(i) ? '1' : '0';
+
+            return s;
+        }
+};
+
+//习题 2-35
+//利用 Bitmap 在 O(n) 内剔除 n 个 ASCII 字符中的重复字符，各字符仅保留一份
+void uniquify_ascii(char* str, int len){
+    Bitmap bm = Bitmap(128);
+    cout << "aft: ";
+    for (int i=0; i<len; i++){
+        if (!bm.test(str[i])){
+            cout << str[i];
+            bm.set(str[i]);
+        }
+    }
+    cout << endl;
+}
+
+
+//习题 2-36 利用 Bitmap 计算出不大于 10^8 的所有素数 Eratosthenes 筛法
+// 素数（质数）为 > 1 的除 1 和自身外不能被其它整数整队的数，因此 0, 1 都不是质数。
+// 筛法求素数：计算不大于 n 的所有素数
+//   先排除 0, 1 两个非素数，从 2 到 n 迭代进行：
+//     接下来的数 i 是一个素数，并将素数的整数倍 (i, 2i, ... ki) 都标识为非素数。
+// 根据素数理论，不大于 N 的素数最多 N/ln(N) 个。
+void Eratosthenes(int n, char* file) {
+    Bitmap bm(n);
+    bm.set(0); bm.set(1); //0 和 1 都不是素数
+    for (int i=2; i<n; i++) //反复地从
+        if (!bm.test(i))   //下一个可认定的素数 i 起
+            for (int j= min(i, 46340)*min(i, 46340); j<n; j += i) //以 i 为间隔
+                bm.set(j); //将下一个数标记为合数
+    //B.dump(file); //将所有整数的筛法标记统一存入指定文件。
+    cout << "Primary:";
+    for (int i=0; i<n; i++){
+        if (!bm.test(i)){
+            cout << i << ", ";
+        }
+    }
+    cout << endl;
+}
 
 int main() {
     cout << "hello" << endl;
@@ -635,4 +869,42 @@ int main() {
 
     cout << "search(9)=" << v.search(9) << endl; //4
 
+    //习题 [2-34] Bitmap b) 测试
+    cout << "Bitmap test:" << endl;
+    Bitmap bitmap = Bitmap();
+    bitmap.set(0);
+    bitmap.set(1);
+    bitmap.set(9);
+    cout << "Bitmap:" << bitmap.bits2string(15) << endl; //110000000100000
+
+
+    //习题 [2-34] 无需初始化时间的 Bitmap c) 测试
+    cout << "Bitmap_without_init test:" << endl;
+    Bitmap_without_init bitmap2 = Bitmap_without_init(10);
+    bitmap2.set(0);
+    bitmap2.set(1);
+    bitmap2.set(9);
+    cout << "Bitmap:" << bitmap2.bits2string() << endl; //1100000001
+
+    //习题 [2-34] 无需初始化时间的 Bitmap c) 支持 clear()测试
+    cout << "Bitmap_without_init2 test:" << endl;
+    Bitmap_without_init2 bitmap3 = Bitmap_without_init2(10);
+    bitmap3.set(0);
+    bitmap3.set(1);
+    bitmap3.set(9);
+    cout << "Bitmap:" << bitmap3.bits2string() << endl; //1100000001
+    bitmap3.clear(1);
+    cout << "Bitmap:" << bitmap3.bits2string() << endl; //1000000001
+
+    //习题 2-35 测试
+    char* str = new char[101];
+    for(int i=0; i<100; i++){
+        str[i] = 'a' + rand()%26; //a-z
+    }
+    str[100] = '\0';
+
+    cout <<"ori: " << str <<endl;
+    uniquify_ascii(str, 100);
+
+    Eratosthenes(200, NULL);
 }
