@@ -356,6 +356,7 @@ void List<T>::selectionSort ( ListNodePosi(T) p, int n) { //valid(p) && rank(p)+
     while( 1<n ) { //在至少还剩下两个节点之前，在待排序区间内
         ListNodePosi(T) max = selectMax( head->succ, n); //找出最大者
         insertB( tail, remove(max) ); // 将无序前缀中的最大者移到有序后缀中作为首元素
+        // swap(tail->pred->data, max->data); // 优化：可以不用按上面进行删除和插入操作，只需互换数值即可
         tail = tail->pred;
         n--;
     }
