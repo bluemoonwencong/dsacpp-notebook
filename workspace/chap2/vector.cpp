@@ -805,7 +805,7 @@ int main() {
     v.report("Init"); 
     v.insert(0, 9);
     v.insert(0, 4);
-    v.report("insert(0,4), insert(0, 4)"); // 4, 9
+    v.report("insert(0,4), insert(0, 9)"); // 4, 9
     v.insert(1, 5);
     v.report("insert(1,5)"); //4,5,9
     v.put(1, 2);

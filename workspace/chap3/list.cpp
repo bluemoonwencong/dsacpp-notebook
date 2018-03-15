@@ -38,8 +38,8 @@ template <typename T> class List{
         void init(); //列表创建时的初始化
         int clear(); //清除所有节点
         void copyNodes(ListNodePosi(T) p, int n); //复制列表中自位置 p 起的 n 项
-        void merge(ListNodePosi(T)&, int, List<T>&, ListNodePosi(T), int); //有序列表区间归并
         void mergeSort(ListNodePosi(T) p, int); //对从 p 开始的 n 个节点归并排序
+        void merge(ListNodePosi(T), int, List<T>&, ListNodePosi(T), int); //有序列表区间归并
         void selectionSort(ListNodePosi(T) p, int); //对从 p 开始的 n 个节点选择排序
         void insertionSort(ListNodePosi(T) p, int); //对从 p 开始的 n 个节点插入排序
 
@@ -119,6 +119,18 @@ template <typename T> class List{
             sort(first(), _size);
         }
 
+        void mergeSort(){
+            mergeSort(first(), _size);
+        }
+
+        void selectionSort() {
+            selectionSort(first(), _size);
+        }
+
+        void insertionSort(){
+            insertionSort(first(), _size);
+        }
+
         int deduplicate(); //无序去重
 
         int uniquify(); //有序去重
@@ -130,12 +142,23 @@ template <typename T> class List{
 
         template <typename VST> //操作器
         void traverse( VST &); //遍历，依次实施 visit 操作（函数对象，可全局性修改）
+
+        void report(string title){
+            cout << "List(" << title << "): ";
+            ListNodePosi(T) p = first();
+            while(valid(p)){
+                cout << p->data << ", ";
+                p = p->succ;
+            }
+            cout << endl;
+        }
+
 };
 
 template <typename T> void List<T>::init(){ //列表初始化，在创建列表对象时统一调用
     header = new ListNode<T>; //创建头哨兵节点
     trailer = new ListNode<T>; //创建尾哨兵节点
-    header->succ = trailer; header-pred = NULL;
+    header->succ = trailer; header->pred = NULL;
     trailer->pred = header; trailer->succ = NULL;
     _size = 0;
 }
@@ -214,7 +237,7 @@ List<T>::List( ListNodePosi(T) p, int n) {
 
 
 template <typename T> //整体复制列表 L
-void List<T>::List( List<T> const& L) {
+List<T>::List( List<T> const& L) {
     copyNodes(L.first(), L._size);
 }
 
@@ -260,13 +283,13 @@ int List<T>::deduplicate(){ //剔除无序列表中的重复节点，从左向�
 
 template <typename T> void List<T>::traverse( void (*visit)( T& ) ){ //借助函数指针机制遍历
     for (ListNodePosi(T) p = header->succ; p != trailer; p = p->succ)
-        visit(p-data);
+        visit(p->data);
 }
 
 template <typename T> template <typename VST> //元素类型、操作器
-void List<T>::traverse( VST& vist) //借助函数对象机制遍历
+void List<T>::traverse( VST& vist){ //借助函数对象机制遍历
     for (ListNodePosi(T) p = header->succ; p != trailer; p = p->succ)
-        visit(p-data);
+        visit(p->data);
 }
 
 
@@ -343,12 +366,156 @@ template <typename T> //从起始于位置 p 的 n 个元素中选出最大者�
 ListNodePosi(T) List<T>::selectMax( ListNodePosi(T) p, int n) {
     ListNodePosi(T) max = p; //最大者暂定为首节点 p
     for ( ListNodePosi(T) cur = p; 1 < n; n--) //从首节点 p 出发，将后续节点逐一与 max 比较
-        if (!lt( (cur=cur->succ)->data, max->data)) //若当前元素 >= max, 则
+        if ((cur=cur->succ)->data >= max->data) //若当前元素 >= max, 则
             max = cur;
     return max; //返回最大节点位置
+}
+
+template <typename T> //有序列表的归并：当前列表中自 p 起的 n 个元素，与列表 L 中自 q 起的 m 个元素归并
+void List<T>::merge( ListNodePosi(T) p, int n, List<T>& L, ListNodePosi(T) q, int m) {
+    //assert: this.valid(p) && rank(p)+n<=_size && this.sorted(p,n)
+    //        L.valid(q) && rank(q)+m<=L._size && L.sorted(q,m)
+    //注：在归并排序之类的场合，有可能 this==L && rank(p)+n=rank(q)
+    //为方便归并排序，归并所得的有序列表依然起始于节点 p
+    ListNodePosi(T) pp = p->pred; //方便之后能返回 p
+
+    while ( 0 < m ) //在 q 尚未移出区间之前
+        if ( (0<n) && (p->data <= q->data) ){ //若 p 仍在区间内且 v(p) <= v(q)
+            if ( q == ( p=p->succ ) ) // 如果此时 p 部分已经处理完，则提前返回
+                break;
+            n--;  // p 归入合并的列表，并替换为其直接后继
+        }
+        else { //若 p 已超出右界或 v(q) < v(p) 则
+            insertB( p, L.remove( (q=q->succ)->pred )); //将 q 转移到 p 之前
+            m--;
+        }
+
+    p = pp->succ; //确定归并后区间的起点
+}
+
+
+template <typename T> //列表的归并排序算法：对起始于位置 p 的 n 个元素排序
+void List<T>::mergeSort( ListNodePosi(T) p, int n) { //valid(p) && rank(p)+n <= _size
+    if (n<2) 
+        return;
+
+    int m = n >> 1; //以中点为界
+    ListNodePosi(T) q = p;
+    for ( int i=0; i<m; i++) //均分列表
+        q = q->succ; 
+
+    mergeSort(p, m);
+    mergeSort(q, n-m); //对前后子列表排序
+
+    merge(p, m, *this, q, n-m); //归并
+}//注意：排序后，p 依然指向归并后区间的起点
+
+ListNodePosi(int) create_node(int data) {
+    ListNodePosi(int) node = new ListNode<int>();
+    node->data = data;
+    return node;
 }
 
 int main() {
 
     cout << "hello" << endl;
+
+    // List test
+    List<int> v = List<int>();
+    v.report("Init"); 
+
+    //ListNodePosi(int) node = create_node(9);
+    v.insertAsFirst(4);
+    v.insertAsLast(9);
+    v.report("insertAsFirst(4), insertAsLast(0, 9)"); // 4, 9
+    ListNodePosi(int) p = v.first();
+    v.insertA(p, 5);
+    v.report("insertA(first,5)"); //4,5,9
+    p = v.first();
+    v.insertB(p, 2);
+    v.report("insertB(first,2)"); //2,4,5,9
+    cout << "last=" << v.last()->data << endl; //9
+
+    v.insertAsFirst(100);
+    p = v.first();
+    cout << "removed=" << v.remove(p) << endl; //100
+
+
+    v.insertAsFirst(8);
+    v.insertAsFirst(7);
+    v.insertAsFirst(5);
+    v.insertAsFirst(2);
+    v.insertAsFirst(4);
+
+    v.report("ori"); //4, 2, 5, 7, 8, 2, 4, 5, 9,
+
+    List<int> *pv2 = new List<int>(v);
+    pv2->sort();
+    pv2->report("sorted"); // 2, 2, 4, 4, 5, 5, 7, 8, 9,
+
+    delete pv2;
+    pv2 = new List<int>(v);
+    pv2->insertionSort();
+    pv2->report("insertionSort"); // 2, 2, 4, 4, 5, 5, 7, 8, 9,
+
+    delete pv2;
+    pv2 = new List<int>(v);
+    pv2->selectionSort();
+    pv2->report("selectionSort"); // 2, 2, 4, 4, 5, 5, 7, 8, 9,
+
+
+    List<int> *pv3 = new List<int>(*pv2);
+    pv2->report("pv2:");
+    pv3->report("pv3:");
+    pv2->merge(*pv3);
+    pv2->report("test merge pv2,pv3");
+
+    delete pv2;
+    pv2 = new List<int>(v);
+    pv2->mergeSort();
+    pv2->report("mergeSort"); // 2, 2, 4, 4, 5, 5, 7, 8, 9,
+    /*
+    v2 = List<int>(v);
+    v2.mergeSort();
+    v2.report("mergeSort"); // 2, 2, 4, 4, 5, 5, 7, 8, 9,
+
+    v.unsort();
+    v.report("unsort");
+    v.bubbleSort();
+    v.report("bubbleSort"); //3,4,4,6,7,9
+
+    v.unsort();
+    v.report("unsort");
+    v.bubbleSort_tuned_for_tail_in_order();
+    v.report("bubbleSort_tuned_for_tail_in_order"); //3,4,4,6,7,9
+
+    v.unsort();
+    v.report("unsort");
+    v.bubbleSort_tuned_for_header_in_order();
+    v.report("bubbleSort_tuned_for_header_in_order"); //3,4,4,6,7,9
+
+    v.unsort();
+    v.report("unsort");
+    v.bubbleSort_tuned_for_header_and_tail_in_order();
+    v.report("bubbleSort_tuned_for_header_and_tail_in_order"); //3,4,4,6,7,9
+
+
+    v.unsort();
+    v.report("unsort");
+    v.mergeSort();
+    v.report("mergeSort"); //3,4,4,6,7,9
+
+    cout << "disordered()=" << v.disordered() << endl; // 0
+
+    cout << "search(1)=" << v.search(1) << endl; //-1
+    cout << "search(4)=" << v.search(4) << endl; //2
+    cout << "search(8)=" << v.search(8) << endl; //4
+    cout << "search(9)=" << v.search(9) << endl; //5
+    cout << "search(10)=" << v.search(10) << endl; //5
+
+    v.uniquify();
+    v.report("uniquified");
+
+    cout << "search(9)=" << v.search(9) << endl; //4
+    */
 }
