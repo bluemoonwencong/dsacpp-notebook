@@ -26,8 +26,6 @@ template <typename T> class Vector { //向量模板类
 
         Rank max(Rank lo, Rank hi); //选取最大元素
 
-        void selectionSort(Rank lo, Rank hi); //选择排序算法
-
         void merge(Rank lo, Rank mi, Rank hi); //归并算法
 
         Rank partition(Rank lo, Rank hi); //轴点构造算法
@@ -126,6 +124,14 @@ template <typename T> class Vector { //向量模板类
         void bubbleSort_tuned_for_header_and_tail_in_order(); //起泡排序算法. 优化版本
         void mergeSort(Rank lo, Rank hi); //归并排序算法
         void mergeSort(); //归并排序算法
+
+        //习题 3-8
+        void insertionSort(Rank lo, Rank hi); //插入排序算法
+        void insertionSort();
+
+        //习题 3-9
+        void selectionSort(Rank lo, Rank hi); //选择排序算法
+        void selectionSort();
 
 
         void unsort(Rank lo, Rank hi); //对 [lo, hi) 置乱
@@ -418,6 +424,43 @@ template <typename T> void Vector<T>::sort(Rank lo, Rank hi) { //向量区间 [l
     }
 }
 
+template <typename T> //向量的插入排序，见教程 p80
+void Vector<T>::insertionSort() {
+    insertionSort(0, size());
+}
+
+template <typename T> //向量的插入排序，见教程 p80
+void Vector<T>::insertionSort(Rank lo, Rank hi) {
+  for (Rank r=lo; r<hi; r++) {
+      Rank p = search(_elem[r], lo, r-1); //找到插入位置，在 p 后面插入
+
+      T value = _elem[r];
+      for (Rank j=r-1; j>p; j--){ //从右向左腾出位置
+          _elem[j+1] = _elem[j];
+      }
+      _elem[p+1] = value;
+  }
+}
+
+template <typename T> //向量的选择排序，见教程 p81
+void Vector<T>::selectionSort() {
+    selectionSort(0, size());
+}
+
+template <typename T> //向量的选择排序，见教程 p81
+void Vector<T>::selectionSort(Rank lo, Rank hi) {
+    while ( lo < --hi)
+        swap( _elem[max(lo, hi)], _elem[hi]); //将 [hi] 与 [lo, hi) 中的最大者交换
+}
+
+template <typename T>
+Rank Vector<T>::max (Rank lo, Rank hi) { //在 [lo, hi] 内找到最大者
+    Rank mx = hi;
+    while ( lo < hi-- ) //逆向扫描
+        if ( _elem[hi] > _elem[mx] ) //且严格比较
+            mx = hi; //从而能在 max 有多个时保证后者优先，进而保证 selectionSort 稳定
+    return mx;
+}
 
 template <typename T> //向量的起泡排序
 void Vector<T>::bubbleSort() //assert: 0 <= lo < hi <= size
@@ -855,6 +898,17 @@ int main() {
     v.report("unsort");
     v.mergeSort();
     v.report("mergeSort"); //3,4,4,6,7,9
+
+    v.unsort();
+    v.report("unsort");
+    v.insertionSort();  //习题 [3-8]
+    v.report("insertionSort"); //3,4,4,6,7,9
+
+
+    v.unsort();
+    v.report("unsort");
+    v.selectionSort();  //习题 [3-9]
+    v.report("selectionSort"); //3,4,4,6,7,9
 
     cout << "disordered()=" << v.disordered() << endl; // 0
 
