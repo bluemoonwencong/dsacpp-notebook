@@ -38,8 +38,8 @@ template <typename T> class List{
         void init(); //列表创建时的初始化
         int clear(); //清除所有节点
         void copyNodes(ListNodePosi(T) p, int n); //复制列表中自位置 p 起的 n 项
-        void mergeSort(ListNodePosi(T) p, int); //对从 p 开始的 n 个节点归并排序
-        void merge(ListNodePosi(T), int, List<T>&, ListNodePosi(T), int); //有序列表区间归并
+        void mergeSort(ListNodePosi(T) &p, int); //对从 p 开始的 n 个节点归并排序
+        void merge(ListNodePosi(T) &, int, List<T>&, ListNodePosi(T), int); //有序列表区间归并
         void selectionSort(ListNodePosi(T) p, int); //对从 p 开始的 n 个节点选择排序
         void insertionSort(ListNodePosi(T) p, int); //对从 p 开始的 n 个节点插入排序
 
@@ -56,6 +56,15 @@ template <typename T> class List{
         //只读访问接口
         Rank size() const {
             return _size;
+        }
+
+        Rank rank( ListNodePosi(T) p) const {
+            ListNodePosi(T) q = header;
+            for( Rank r=0; q->succ != trailer; r++, q = q->succ ) {
+                if (q->succ == p)
+                    return r;
+            }
+            return -1;
         }
 
         bool empty() const {
@@ -110,7 +119,9 @@ template <typename T> class List{
         T remove( ListNodePosi(T) p); //删除合法位置 p 处的节点，返回被删除节点
 
         void merge(List<T>& L) { //全列表归并
-            merge(first(), _size, L, L.first(), L._size);
+            ListNodePosi(T) p = first();
+
+            merge(p, _size, L, L.first(), L._size);
         }
 
         void sort( ListNodePosi(T) p, int n); //列表区间排序
@@ -120,7 +131,8 @@ template <typename T> class List{
         }
 
         void mergeSort(){
-            mergeSort(first(), _size);
+            ListNodePosi(T) p = first();
+            mergeSort(p, _size);
         }
 
         void selectionSort() {
@@ -136,6 +148,8 @@ template <typename T> class List{
         int uniquify(); //有序去重
 
         void reverse(); //前后倒置
+        void reverse2(); //前后倒置
+        void reverse3(); //前后倒置
 
         //遍历
         void traverse( void (*)(T&)); //遍历，依次实施 visit 操作(函数指数，只读或局部性修改)
@@ -151,6 +165,12 @@ template <typename T> class List{
                 p = p->succ;
             }
             cout << endl;
+        }
+
+
+        void show( ListNodePosi(T) p, int n){//显示从 p 位置开始的 n 个元素值
+            for (int i=0; i<n; i++, p=p->succ)
+                cout << p->data << ", ";
         }
 
 };
@@ -177,7 +197,7 @@ T& List<T>::operator[] (Rank r) const { //assert: 0 <= r < size
 template <typename T>
 ListNodePosi(T) List<T>::find( T const& e, int n, ListNodePosi(T) p) const {
     while ( 0 < n-- ) // 对于 p 的最近的 n 个前驱，从右向左
-        if ( e == (p=p->succ)->data )
+        if ( e == (p=p->pred)->data )
             return p; //逐个比对
 
     return NULL; // p 越出左边界意味着区间内不包含 e, 查找失败
@@ -356,7 +376,7 @@ void List<T>::selectionSort ( ListNodePosi(T) p, int n) { //valid(p) && rank(p)+
     while( 1<n ) { //在至少还剩下两个节点之前，在待排序区间内
         ListNodePosi(T) max = selectMax( head->succ, n); //找出最大者
         insertB( tail, remove(max) ); // 将无序前缀中的最大者移到有序后缀中作为首元素
-        // swap(tail->pred->data, max->data); // 优化：可以不用按上面进行删除和插入操作，只需互换数值即可
+        // swap(tail->pred->data, max->data); // 优化：可以不用按上面进行删除和插入操作，只需互换数值即可, 习题 3-13
         tail = tail->pred;
         n--;
     }
@@ -373,7 +393,7 @@ ListNodePosi(T) List<T>::selectMax( ListNodePosi(T) p, int n) {
 }
 
 template <typename T> //有序列表的归并：当前列表中自 p 起的 n 个元素，与列表 L 中自 q 起的 m 个元素归并
-void List<T>::merge( ListNodePosi(T) p, int n, List<T>& L, ListNodePosi(T) q, int m) {
+void List<T>::merge( ListNodePosi(T) &p, int n, List<T>& L, ListNodePosi(T) q, int m) {
     //assert: this.valid(p) && rank(p)+n<=_size && this.sorted(p,n)
     //        L.valid(q) && rank(q)+m<=L._size && L.sorted(q,m)
     //注：在归并排序之类的场合，有可能 this==L && rank(p)+n=rank(q)
@@ -387,7 +407,7 @@ void List<T>::merge( ListNodePosi(T) p, int n, List<T>& L, ListNodePosi(T) q, in
             n--;  // p 归入合并的列表，并替换为其直接后继
         }
         else { //若 p 已超出右界或 v(q) < v(p) 则
-            insertB( p, L.remove( (q=q->succ)->pred )); //将 q 转移到 p 之前
+            ListNodePosi(T) bb = insertB( p, L.remove( (q=q->succ)->pred )); //将 q 转移到 p 之前
             m--;
         }
 
@@ -396,7 +416,7 @@ void List<T>::merge( ListNodePosi(T) p, int n, List<T>& L, ListNodePosi(T) q, in
 
 
 template <typename T> //列表的归并排序算法：对起始于位置 p 的 n 个元素排序
-void List<T>::mergeSort( ListNodePosi(T) p, int n) { //valid(p) && rank(p)+n <= _size
+void List<T>::mergeSort( ListNodePosi(T) & p, int n) { //valid(p) && rank(p)+n <= _size
     if (n<2) 
         return;
 
@@ -415,6 +435,50 @@ ListNodePosi(int) create_node(int data) {
     ListNodePosi(int) node = new ListNode<int>();
     node->data = data;
     return node;
+}
+
+//习题 3-18，共 3 种实现方式
+template <typename T>
+void List<T>::reverse() {  //适合 T 类型不复杂，能在常数时间内完成赋值操作的情况
+    ListNodePosi(T) p = header;
+    ListNodePosi(T) q = trailer;
+    for (int i=0; i<_size; i+=2){ //从首末节点开始，由外而内，捉对地
+        /*p = p->succ;              // 交换对称节点的数据项
+        q = q->pred;
+        swap(p->data, q->data);
+        */
+        swap( (p=p->succ)->data, (q=q->pred)->data );
+    }
+}
+
+
+template <typename T>
+void List<T>::reverse2() {  //适合 T 类型复杂，不能在常数时间内完成赋值操作的情况
+    if (_size < 2)
+        return;
+
+    ListNodePosi(T) p; ListNodePosi(T) q;
+
+    for ( p = header, q = p->succ; p != trailer; p = q, q = p->succ )
+        p->pred = q; //自前向后，依次颠倒各节点的前驱指针
+
+    for ( p = header, q = p->pred; p != trailer; p = q, q = p->pred )
+        q->succ = p; //自前向后，依次颠倒各节点的后续指针
+
+    // 准备互换头尾
+    trailer->pred = NULL;
+    header->succ = NULL;
+    swap( header, trailer);
+}
+
+template <typename T>
+void List<T>::reverse3() {  //适合 T 类型复杂，不能在常数时间内完成赋值操作的情况
+    if (_size < 2)
+        return;
+
+    for ( ListNodePosi(T) p = header; p; p = p->pred ) //自前向后，依次
+        swap(p->pred, p->succ);
+    swap(header, trailer);
 }
 
 int main() {
@@ -475,48 +539,42 @@ int main() {
     pv2 = new List<int>(v);
     pv2->mergeSort();
     pv2->report("mergeSort"); // 2, 2, 4, 4, 5, 5, 7, 8, 9,
-    /*
-    v2 = List<int>(v);
-    v2.mergeSort();
-    v2.report("mergeSort"); // 2, 2, 4, 4, 5, 5, 7, 8, 9,
+    cout << "find(1)=" << pv2->rank(pv2->find(1)) << endl; //-1
+    cout << "find(2)=" << pv2->rank(pv2->find(2)) << endl; //1
+    cout << "find(3)=" << pv2->rank(pv2->find(2)) << endl; //1
 
-    v.unsort();
-    v.report("unsort");
-    v.bubbleSort();
-    v.report("bubbleSort"); //3,4,4,6,7,9
-
-    v.unsort();
-    v.report("unsort");
-    v.bubbleSort_tuned_for_tail_in_order();
-    v.report("bubbleSort_tuned_for_tail_in_order"); //3,4,4,6,7,9
-
-    v.unsort();
-    v.report("unsort");
-    v.bubbleSort_tuned_for_header_in_order();
-    v.report("bubbleSort_tuned_for_header_in_order"); //3,4,4,6,7,9
-
-    v.unsort();
-    v.report("unsort");
-    v.bubbleSort_tuned_for_header_and_tail_in_order();
-    v.report("bubbleSort_tuned_for_header_and_tail_in_order"); //3,4,4,6,7,9
+    pv2->uniquify();
+    pv2->report("uniquify"); // 4, 2, 5, 7, 8, 9,
 
 
-    v.unsort();
-    v.report("unsort");
-    v.mergeSort();
-    v.report("mergeSort"); //3,4,4,6,7,9
+    delete pv2;
+    pv2 = new List<int>(v);
+    pv2->report("ori"); // 4, 2, 5, 7, 8, 2, 4, 5, 9,
+    cout << "search(2)=" << pv2->rank(pv2->search(2)) << endl; //5
+    cout << "search(1)=" << pv2->rank(pv2->search(1)) << endl; //-1
+    cout << "search(9)=" << pv2->rank(pv2->search(9)) << endl; //8
 
-    cout << "disordered()=" << v.disordered() << endl; // 0
+    delete pv2;
+    pv2 = new List<int>(v);
+    pv2->report("ori"); // 4, 2, 5, 7, 8, 2, 4, 5, 9,
+    pv2->deduplicate();
+    pv2->report("deduplicate"); // 7, 8, 2, 4, 5 9,
 
-    cout << "search(1)=" << v.search(1) << endl; //-1
-    cout << "search(4)=" << v.search(4) << endl; //2
-    cout << "search(8)=" << v.search(8) << endl; //4
-    cout << "search(9)=" << v.search(9) << endl; //5
-    cout << "search(10)=" << v.search(10) << endl; //5
+    delete pv2;
+    pv2 = new List<int>(v);
+    pv2->report("ori"); // 4, 2, 5, 7, 8, 2, 4, 5, 9,
+    pv2->reverse();
+    pv2->report("reverse");
 
-    v.uniquify();
-    v.report("uniquified");
+    delete pv2;
+    pv2 = new List<int>(v);
+    pv2->report("ori"); // 4, 2, 5, 7, 8, 2, 4, 5, 9,
+    pv2->reverse2();
+    pv2->report("reverse2");
 
-    cout << "search(9)=" << v.search(9) << endl; //4
-    */
+    delete pv2;
+    pv2 = new List<int>(v);
+    pv2->report("ori"); // 4, 2, 5, 7, 8, 2, 4, 5, 9,
+    pv2->reverse3();
+    pv2->report("reverse3");
 }
