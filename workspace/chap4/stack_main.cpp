@@ -341,7 +341,6 @@ bool labyrinth( Cell Laby[LABY_MAX][LABY_MAX], Cell* s, Cell* t, Stack<Cell*> &p
 
     do { //从起点出发不断试探、回溯，直到抵达终点、或穷尽所有可能
         Cell* c = path.top(); //检查当前位置（栈顶）
-        cout << c->x << "," << c->y << endl;
         if (c == t) //若已抵达终点，则找到了一条通路，否则沿尚未试探的方向继续试探
             return true;
 
@@ -425,6 +424,16 @@ int main() {
 
     cout << "test labyrinth:" << endl; //见P104 的 13X13 实例
     for (int i=0; i<LABY_MAX; i++) {
+        for ( int j=0; j<LABY_MAX; j++) {
+            laby[i][j].x = i;
+            laby[i][j].y = j;
+            laby[i][j].status = AVAILABLE;
+            laby[i][j].incoming = UNKNOWN;
+            laby[i][j].outgoing = UNKNOWN;
+        }
+    }
+
+    for (int i=0; i<LABY_MAX; i++) {
         laby[0][i].status = WALL; //第一行
         laby[LABY_MAX-1][i].status = WALL; //最后一行
 
@@ -462,12 +471,15 @@ int main() {
     laby[11][10].status = WALL;
     laby[11][11].status = WALL;
 
-    Cell* ss = new Cell();
-    ss->x = 4; ss->y = 1; ss->status = AVAILABLE;
-    Cell* tt = new Cell();
-    tt->x = 4; tt->y = 9; tt->status = AVAILABLE;
+    Cell* ss = &laby[4][9];
+    Cell* tt = &laby[4][1];
     Stack<Cell*> path = Stack<Cell*>();
 
     cout << "has path =" <<  labyrinth( laby, ss, tt, path) << endl;
+    while (!path.empty()) {
+        Cell* c = path.pop();
+        cout << "(" << c->x << "," << c->y << ") <-- ";
+    }
+    cout << endl;
 }
 
