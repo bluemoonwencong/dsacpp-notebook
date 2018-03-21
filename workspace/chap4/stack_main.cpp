@@ -34,7 +34,7 @@ void convert_number(int n, int base) {
 }
 
 //栈的应用 2. 括号匹配
-bool parentheses_match(const char exp[], int lo, int hi) { //表达式括号匹配检查，可兼顾三种括号
+bool parentheses_match(char* &exp, int lo, int hi) { //表达式括号匹配检查，可兼顾三种括号
     Stack<char> s = Stack<char>(); //使用栈记录已发现但尚未匹配的括号
     for( int i=lo; i<hi; i++) {
         switch( exp[i] ){
@@ -66,6 +66,7 @@ bool parentheses_match(const char exp[], int lo, int hi) { //表达式括号匹�
 
 //习题 4-6
 // 输出一个浮点数并压入栈中
+/*
 float readNumber(char* &S, Stack<float> & opnd) {
     opnd.push(0); //初始化为 0
     char c = *S;
@@ -92,6 +93,19 @@ float readNumber(char* &S, Stack<float> & opnd) {
         else break;
     }
     return opnd.top();
+}
+*/
+float readNumber(char* &p, Stack<float>& stk) {//将起始于 p 的子串解析为数值，并存入操作数栈
+    stk.push( (float) (*p-'0') ); //当前数位对应的值进栈
+    while( isdigit(*(++p)) ) //只要后续还有紧邻的数字（即多位整数的情况），则
+        stk.push( stk.pop()*10 + (*p-'0') ); //弹出原操作数并追加新数位后，新数值重新入栈
+
+    if ('.' != *p) return stk.top(); //此后非小数点，则意味着当前操作数解析完成
+    float fraction = 1; //否则，意味着还有小数部分
+    while (isdigit(*(++p)))
+        stk.push( stk.pop() + (*p-'0')*(fraction/=10) ); //小数部分
+
+    return stk.top();
 }
 
 float calcu(char op, float opnd) { //实施一元计算
@@ -157,15 +171,15 @@ const char pri[N_OPTR][N_OPTR] = { //运算符优先等级[栈顶][当前]
 
 int op2index(char op) {
     switch(op){
-        case '+': return 0; break;
-        case '-': return 1; break;
-        case '*': return 2; break;
-        case '/': return 3; break;
-        case '^': return 4; break;
-        case '!': return 5; break;
-        case '(': return 6; break;
-        case ')': return 7; break;
-        case '\0': return 8; break;
+        case '+': return ADD; break;
+        case '-': return SUB; break;
+        case '*': return MUL; break;
+        case '/': return DIV; break;
+        case '^': return POW; break;
+        case '!': return FAC; break;
+        case '(': return L_P; break;
+        case ')': return R_P; break;
+        case '\0': return EOE; break;
         default: return -1; break;
     }
 }
@@ -180,6 +194,7 @@ float evaluate( char* S, string & RPN) { //对已剔除空白符的表达式求�
     Stack<float> opnd; //运算数栈
     Stack<char> optr; //运算符栈
 
+    // 改进1： assert parentheses_match()
     optr.push('\0'); //尾哨兵 '\0' 也作为头哨兵首先入栈
 
     while (!optr.empty()) { //在运算符栈非空之前，逐个处理表达式中各字符
@@ -189,6 +204,9 @@ float evaluate( char* S, string & RPN) { //对已剔除空白符的表达式求�
         }
         else {//若当前字符为运算符
             switch( orderBetween(optr.top(), *S) ) { //视其与栈顶运算符之间优先级高低分别处理
+
+
+                // 改进2： 在执行操作符入栈时，确保操作数栈的规模就比操作符栈的恰好大一
                 case '<': //栈顶运算符低优先级时
                     optr.push( *S ); S++; //计算推迟，当前运算符进栈
                     break;
@@ -196,6 +214,7 @@ float evaluate( char* S, string & RPN) { //对已剔除空白符的表达式求�
                     optr.pop(); S++; //脱括号并接收下一个字符
                     break;
                 case '>':{ //栈顶运算符高优先级时，可实施相应的计算，并将结果重新入栈
+                    // 改进3： 在执行运算时确保 opnd 中有足够的操作数
                     char op = optr.pop(); append( RPN, op ); //栈顶运算符出栈并续接至 RPN 末尾
                     if ( '!' == op ) { //! 为一元操作符
                         float pOpnd = opnd.pop();
@@ -362,6 +381,74 @@ bool labyrinth( Cell Laby[LABY_MAX][LABY_MAX], Cell* s, Cell* t, Stack<Cell*> &p
     return false;
 }
 
+
+//习题 4-3
+//甄别栈混洗：对于 {1,2,3, ..., n} 的任一排序，判定其是否为栈混洗。
+// A[n] = {1,2,3,...,n}
+bool check_stack_permutation(int B[], int n) {
+    Stack<int> S = Stack<int>(); //辅助中转栈
+    int i = 1; //模拟输入栈 A （的栈顶元素）
+    for (int k=1; k<=n; k++) { //通过迭代，依次输出每一项 B[k]
+        while (S.empty() || B[k] != S.top() ) { //只要 B[k] 仍未出现在 S 栈顶
+            S.push(i); //就反复地从栈 A 中取出顶元素，并随即压入栈 S
+            //只要 B[] 不含任何禁形，则以上迭代就不可能导致栈 A 溢出
+            //以上迭代退出时，S 栈必然非空，且 S 的栈顶元素就是 B[k]
+            if (i>n)
+                return false;
+            i++;
+        }
+        S.pop(); //因此，至此只需要弹出 S 的栈顶元素，即为希望输出的 B[k]
+    }
+
+    return S.empty();
+}
+
+//习题 4-18
+//Fermat-Lagrange 定理：任何一个自然数都可以表示为 4 个整数的平方和，
+//如 30 = 1^2 + 2^2 + 3^2 + 4^2
+//试采用试探回溯策略解
+//分解的每个自然数都 <= sqrt(n) = N
+// 类似 N 皇后问题，其中行数为 4 行，列数为 N 行（即每个自然数的取值）。
+int nFLSolu = 0; // 保存解的个数
+int nFLCheck = 0; //保存求解过程中的尝试次数
+
+void fermat_lagrange( int n, int counts[] ){ //n 分解
+    Stack<int> solu; //存放（部分）解的栈
+    int q = 0; //从第一个自然数开始，相当于第一行
+    int N = (int)sqrt(n); //列数
+    int stack_sum = 0; //栈中所有元素的平方和
+
+    do { //反复试探与回溯
+        if ( 4 <= solu.size() || N < q ) { //若已出界，则
+            q = solu.pop(); //回溯一行，并接着试探该行中的下一列
+            stack_sum -= q*q;
+            q++; 
+        } 
+        else { //否则，试探下一行
+            if (q <=N && stack_sum + q*q <=n) {
+                solu.push(q);
+                stack_sum += q*q;
+
+                if (4 == solu.size()){
+                    counts[stack_sum] += 1; //统计不超过 n 的每一自然数的分解数
+
+                    if (stack_sum == n){ //局部解是全局解时
+                        nSolu ++;
+                        solu.report("out");
+                    }
+                }
+                //q = 0; //下一行开头
+                //q = q; // 下一行值 >= q，从而能排除同一组数的不同排列
+
+            }
+            else { //q 值及以上的都不符合
+                q = N+1; //使 q 越界
+            }
+
+        }
+    } while( ( 0 < solu.size() ) || ( q <= N) );
+}
+
 int main() {
     Stack<int> s = Stack<int>();
 
@@ -380,8 +467,8 @@ int main() {
     //栈的应用
     convert_number(12345, 8); //30071
 
-    char parentheses_str1[] = "a / ( b [ i - 1 ] [ j + 1 ] + c [ i + 1 ] [ j - 1 ] ) * 2";
-    char parentheses_str2[] = "a / ( b [ i - 1 ] [ j + 1 ] ) + c [ i + 1 ] [ j - 1 ] ) * 2";
+    char *parentheses_str1 = "a / ( b [ i - 1 ] [ j + 1 ] + c [ i + 1 ] [ j - 1 ] ) * 2";
+    char *parentheses_str2 = "a / ( b [ i - 1 ] [ j + 1 ] ) + c [ i + 1 ] [ j - 1 ] ) * 2";
     cout << parentheses_str1 << " is match: " << parentheses_match(parentheses_str1, 0, 56) << endl;
     cout << parentheses_str2 << " is match: " << parentheses_match(parentheses_str2, 0, 58) << endl;
 
@@ -417,6 +504,13 @@ int main() {
     RPN = "";
     cout << exp << "=" << evaluate(exp, RPN) << endl; //(1+2)*3^4=243
     cout << "RPN is:" << RPN << endl; //RPN is:12+34^*
+
+    //习题 4-12
+    //非正常表达式 (12)3+!4*+5 作为输入，也有返回 89
+    exp = "(12)3+!4*+5";
+    RPN = "";
+    cout << exp << "=" << evaluate(exp, RPN) << endl; 
+    cout << "RPN is:" << RPN << endl;
 
     placeQueens(8);
     cout << "8 Queens solutions = " << nSolu << endl; // 92
@@ -479,6 +573,24 @@ int main() {
     while (!path.empty()) {
         Cell* c = path.pop();
         cout << "(" << c->x << "," << c->y << ") <-- ";
+    }
+    cout << endl;
+
+    //习题 4-3
+    //A[] = {1,2,3,4}
+    int B1[] = {-99, 1, 4, 3, 2};
+
+    int B2[] = {-99, 4, 3, 1, 2};
+    cout << "check_stack_permutation([1,4,3,2], 4): " << check_stack_permutation(B1, 4) << endl;
+    cout << "check_stack_permutation([4,3,1,2], 4): " << check_stack_permutation(B2, 4) << endl;
+
+
+    //习题 4-18
+    int counts[101] = { 0 };
+    cout << "fermat_lagrange(100):" << endl;
+    fermat_lagrange( 100, counts );
+    for (int i=0; i<=100; i++){
+        cout << "fermat_lagrange " << i << " counts: " << counts[i] << endl;
     }
     cout << endl;
 }
