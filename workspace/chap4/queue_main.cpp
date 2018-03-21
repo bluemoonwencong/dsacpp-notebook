@@ -58,6 +58,25 @@ void simulate( int nWin, int servTime) { //按指定窗口数，服务总时间�
     delete [] windows;
 }
 
+//习题 4-23 两个有序队列的归并
+Queue<int> queue_merge(Queue<int> A, Queue<int> B){
+    Queue<int> q = Queue<int>();
+    while(!A.empty() && !B.empty()){
+        if (A.front() < B.front())
+            q.enqueue( A.dequeue() );
+        else
+            q.enqueue( B.dequeue() );
+    }
+
+    while (!A.empty())
+        q.enqueue( A.dequeue() );
+
+    while (!B.empty())
+        q.enqueue( B.dequeue() );
+
+    return q;
+}
+
 int main() {
     Queue<int> s = Queue<int>();
 
@@ -75,5 +94,23 @@ int main() {
 
     cout << "test bank simulation:" << endl;
     simulate(10, 60*8);
+
+
+    // 习题 4-23 队列的归并算法
+    Queue<int> A = Queue<int>();
+    A.enqueue(1);
+    A.enqueue(3);
+    A.enqueue(5);
+    A.enqueue(7);
+    Queue<int> B = Queue<int>();
+    B.enqueue(2);
+    B.enqueue(4);
+    B.enqueue(6);
+    B.enqueue(7);
+
+    Queue<int>  C = queue_merge(A, B);
+    A.report("Q1:");
+    B.report("Q2:");
+    C.report("Q1+Q2:");
 }
 

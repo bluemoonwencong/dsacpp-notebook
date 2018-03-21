@@ -449,6 +449,104 @@ void fermat_lagrange( int n, int counts[] ){ //n 分解
     } while( ( 0 < solu.size() ) || ( q <= N) );
 }
 
+
+//习题 4-19
+// 在 '0~9` 间加入 '+'，'*' 后构成的合法算法表达式，使其值为给定的整数 S
+// 使用试探回溯方法
+//1.  0 和 1 之间只能添加 '+', '*'
+//2. 其它数字间可以加 '+', '*'，或者不加（等同于组成成一个多位数）
+//3. 两数 + 的值 <= 两数 * 的值 <= 两数合并的值（不加操作符）
+//4. 0-9 之间共能插入 9 个操作符
+
+char* stack_to_expression(Stack<int> solu) {
+    Stack<char> digits = Stack<char>();
+    digits.push('9');
+    digits.push('8');
+    digits.push('7');
+    digits.push('6');
+    digits.push('5');
+    digits.push('4');
+    digits.push('3');
+    digits.push('2');
+    digits.push('1');
+    digits.push('0'); // <0,1,...9]
+
+    char op_chars[] = {'+', '*', ' '};
+    Stack<int> ops = Stack<int>();
+    while (!solu.empty()) {
+        ops.push( solu.pop() );
+    }
+
+    ostringstream ss;
+
+    while( !digits.empty() ){
+        ss << digits.pop();
+        if (!ops.empty()) {
+            int op = ops.pop();
+            solu.push( op ); //重装回去
+
+            if (op_chars[op] != ' ')
+                ss << op_chars[op];
+        }
+        else break;
+    }
+
+    // ostringstream to char*: https://stackoverflow.com/questions/29802574/getting-char-array-from-c-stringstream-ostringstream
+    //cout << "ss=" << ss.str() << endl;
+    char *s = strdup(ss.str().c_str());
+    return s;
+}
+
+int expression_result(Stack<int> solu) {
+
+    string RPN = "";
+    char * s = stack_to_expression(solu);
+    int val = (int) evaluate(s, RPN);
+    return val;
+}
+
+void S_expressions(int S){
+    Stack<int> solu = Stack<int>(); //存放（部分）解的栈
+    // 按次序尝试的操作符
+    char ops[] = {'+', '*', ' '};
+    int N = 3; //列数
+
+    int q = 0; //从第一个操作符开始，相当于第一行
+
+    int curr_val = 0; // 当前表达式的值
+
+    do { //反复试探与回溯
+        // 0-9 之间共能插入 9 个操作符
+        if ( 9 <= solu.size() || N <= q ) { //若已出界，则
+            q = solu.pop(); //回溯一行，并接着试探该行中的下一列
+            q++; 
+        }
+        else { //否则，试探下一行
+            // 0 1 之间必须要插入 '+', 或 '*'，如果为 ' ' 时表达式非法
+            if (1 == solu.size() && solu.top() == 2){
+                q = N; //直接使其越界
+                continue;
+            }
+
+            // 试探加入该操作符
+            solu.push(q);
+            curr_val = expression_result(solu);
+            if (q < N && curr_val<=S) { //可行
+                if (9 == solu.size() && curr_val == S){
+                    //nSolu ++;
+                    //solu.report("out");
+                    cout << "out:" << stack_to_expression(solu) << endl;
+                }
+                q = 0; //下一行开头
+            }
+            else { //不可行
+                solu.pop(); //撤销
+                q = N; //使 q 越界
+            }
+        }
+    } while( ( 0 < solu.size() ) || ( q < N) );
+}
+
 int main() {
     Stack<int> s = Stack<int>();
 
@@ -593,5 +691,12 @@ int main() {
         cout << "fermat_lagrange " << i << " counts: " << counts[i] << endl;
     }
     cout << endl;
+
+    //习题 4-19
+    cout << "Expressions of 100: " << endl;
+    S_expressions(100);
+
+    cout << "Expressions of 2012: " << endl;
+    S_expressions(2012);
 }
 
