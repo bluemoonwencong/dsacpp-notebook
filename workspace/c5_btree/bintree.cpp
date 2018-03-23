@@ -347,6 +347,95 @@ void travIn_R(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法（�
     travPre_R(p->rChild, visit);
 }
 
+
+//考查中序遍历过程：
+//1. 从根结点开始，先沿最左侧通路自顶而下，到达最左的节点（即没有左孩子的节点），将沿途的节点压入辅助栈
+//2. 现在可以访问最左的节点了，因此从栈中弹出该节点，访问它，如果它有右孩子，则将右孩子压入栈中（此后在迭代中能完成该右孩子为根的子树的相同遍历过程）
+//3. 从栈中弹出一个节点，再次迭代。
+template <typename T> //从当前节点出发，沿左分支不断深入，直到没有左分支的节点
+static void goAlongLeftBranch(BinNodePosi(T) p, Stack<BinNodePosi(T)>& S) {
+    while (p){
+        S.push(p);
+        p = p->lChild;
+    }
+}
+
+template <typename T, typename VST>
+void travIn_I1(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法，迭代版本 1
+    Stack<BinNodePosi(T)> S; //辅助栈
+
+    while( true ){
+        goAlongLeftBranch(p, S); //从当前节点出发，逐批入栈
+        if (S.empty()) //直到所有节点处理完毕
+            break;
+        p = S.pop(); visit(p->data); //弹出栈顶节点并访问
+        p = p->rChild; //转向右子树
+    }
+}
+
+
+//遍历能将半线性的二叉树转化为线性结构。于是指定遍历策略后，就能在节点间定义前驱和后继了。其中没有前驱（后继）的节点称作首（末）节点。
+//定位中序遍历中的直接后继对二叉搜索树很重要。
+template <typename T>
+BinNodePosi(T) BinNode<T>::succ() { //定位节点 v 的直接后继
+    BinNodePosi(T) s = this; //记录后继的临时变量
+
+    if (rChild) { //若有右孩子，则直接后继必在右子树中，具体地就是
+        s = rChild; //右子树中的
+        while (HasLChild(*s)) //最靠左（最小）的节点
+            s = s->lChild;
+    } else { //否则，直接后继应是 “将当前节点包含于基左子树中的最低祖先”，具体地就是
+        while (IsRChild(*s))
+            s = s->parent; //逆向地沿右向分支，不断朝左上方移动
+
+        s = s->parent; //最后再朝右上方移动一步，即抵达直接后继（如果存在）
+    }
+
+    return s;
+}
+
+template <typename T, typename VST>
+void travIn_I2(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法，迭代版本 2
+    Stack<BinNodePosi(T)> S; //辅助栈
+
+    while( true ){
+        if (p) { //沿最左侧通路自顶而下，将节点压入栈
+            S.push(x);
+            p = p->lChild;
+        }
+        else if (!S.empty()) {
+            p = S.pop(); //尚未访问的最低祖先节点
+            visit(p->data);
+            p = p->lChild; //遍历该节点的右子树
+        }
+        else 
+            break;  //遍历完成
+        p = S.pop(); visit(p->data); //弹出栈顶节点并访问
+        p = p->rChild; //转向右子树
+    }
+}
+
+template <typename T, typename VST>
+void travIn_I3(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法：版本版本 3, 无需辅助栈
+    bool backtrack = false; //前一步是否刚从右子树回溯 -- 省去栈，仅 O(1) 辅助空间
+                            //回溯回来的表示当前节点的左侧都已经访问过了
+
+    while (true)
+        if (!backtrack && HasLChild(*p)) //若有左子树且不是刚刚回溯，则
+            p = p->lChild; //深入遍历左子树
+        else { //否则--无左子树或刚刚回溯（左子树已访问完毕）
+            visit(p->data); //访问该节点
+            if (HasRChild(*p)) { //若有右子树，则
+                p = p->rChild; //深入右子树继续遍历
+                backtrack = false; //并关闭回溯标志
+            } else { // 若右子树为空，则
+                if (!(x=x->succ())) //后继为空，表示抵达了末节点
+                    break;
+                backtrack = true; //并设置回溯标志
+            }
+        }
+}
+
 int main() {
     cout << "hello" << endl;
 }
