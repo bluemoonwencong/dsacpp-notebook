@@ -3,6 +3,7 @@
 #include <string.h>
 #include <iostream>
 #include "../chap4/stack.cpp"
+#include "../chap4/queue.cpp"
 
 using namespace std;
 
@@ -434,6 +435,57 @@ void travIn_I3(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法：�
                 backtrack = true; //并设置回溯标志
             }
         }
+}
+
+//将树 T 画在二维平面上，从左侧水平向右看云，未被遮挡的最高叶节点 v（称作最高左侧可见叶节点 HLVFL），即为后序遍历首先访问的节点，该节点可能是左孩子，也可能是右孩子（故用垂直边表示）。
+//沿着 v 与树根之间的通路自底而上，整个遍历也可分解为若干个片段。每一片段，分别起始于通路上的一个节点，并包括三步：访问当前节点，遍历以其右兄弟（若存在）为根的子树，最后向上回溯至其父节点（若存在）并转下下一片段
+template <typename T> //在以栈 S 顶节点为根的子树中，找到最高左侧可见叶节点
+static void gotoHLVFL(Stack<BinNodePosi(T)> & S) { //沿途所遇节点依次入栈
+    while (BinNodePosi(T) p = S.top()) //自顶而下，反复检查当前节点（即栈顶）
+        if (HasLChild(*p)) { //尽可能向左
+            if (HasRChild(*P))
+                S.push(p->rChild); //若有右孩子，优先入栈
+            S.push(p->lChild); //然后才转至左孩子
+        }
+        else //实不得已
+            S.push(p->rChild); //才向右
+
+    S.pop();//返回之前，弹出栈顶的空节点
+}
+
+template <typename T, typename VST>
+void travPost_I(BinNodePosi(T) p, VST& visit) { //二叉树的后序遍历（迭代版本）
+    Stack<BinNodePosi(T)> S; //辅助栈
+
+    if (p)
+        S.push(p); //根入栈
+
+    while (!S.empty()) {
+        if (S.top() != p->parent) //若栈顶不是当前节点之父（则必为其右兄），
+            gotoHLVFL(S); //则此时以其右兄为根的子树中，找到 HLVFL
+
+        p = S.pop(); //弹出该前一节点之后继，并访问
+        visit(x->data); 
+    }
+}
+
+
+// 层次遍历
+//即先上后下，先左后右，借助队列实现。
+template <typename T, typename VST>
+void BinNode<T>::travLevel(VST& visit) { //二叉树层次遍历
+    Queue<BinNodePosi(T)> Q; //辅助队列
+    Q.enqueue(this); //根入队
+
+    while (!Q.empty()) {
+        BinNodePosi(T) p = Q.dequeue(); visit(p->data); //取出队首节点并访问
+
+        if (HasLChild(*p)
+                Q.enqueue(p->lChild);
+
+        if (HasRChild(*p)
+                Q.enqueue(p->rChild);
+    }
 }
 
 int main() {
