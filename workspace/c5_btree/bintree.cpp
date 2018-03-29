@@ -36,6 +36,7 @@ template <typename T> struct BinNode { //二叉树节点模板类
     BinNodePosi(T) insertAsRC(T const&); //作为当前节点的右孩子插入新节点
 
     BinNodePosi(T) succ(); //（中序遍历意义下）取当前节点的直接后继
+    BinNodePosi(T) pred(); //（中序遍历意义下）取当前节点的直接前驱
 
     template <typename VST> void travLevel(VST&); //子树层次遍历
     template <typename VST> void travPre(VST&); //子树先序遍历
@@ -250,7 +251,7 @@ static int removeAt(BinNodePosi(T) p) { //assert: p 为二叉树中的合法位�
     int n = 1 + removeAt(p->lChild) + removeAt(p->rChild); //递归释放左右子树
 
     //release(p->data); 
-    release(p); //释放节点
+    free(p);//release(p); //释放节点
 
     return n;
 }
@@ -289,7 +290,7 @@ void travPre_I1(BinNodePosi(T) p, VST& visit) { //二叉树先序遍历算法（
 
     while (!s.empty()) { //在栈变空之前反复循环
         p = s.pop();
-        visit(q->data); //先访问
+        visit(p->data); //先访问
 
         if (HasRChild(*p))
             s.push(p->rChild); //要先压入右子树节点
@@ -332,8 +333,8 @@ void travPost_R(BinNodePosi(T) p, VST& visit) { //二叉树后序遍历算法（
     if (!p)
         return;
 
-    travPre_R(p->lChild, visit);
-    travPre_R(p->rChild, visit);
+    travPost_R(p->lChild, visit);
+    travPost_R(p->rChild, visit);
     visit(p->data);
 }
 
@@ -343,9 +344,9 @@ void travIn_R(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法（�
     if (!p)
         return;
 
-    travPre_R(p->lChild, visit);
+    travIn_R(p->lChild, visit);
     visit(p->data);
-    travPre_R(p->rChild, visit);
+    travIn_R(p->rChild, visit);
 }
 
 
@@ -385,11 +386,31 @@ BinNodePosi(T) BinNode<T>::succ() { //定位节点 v 的直接后继
         s = rChild; //右子树中的
         while (HasLChild(*s)) //最靠左（最小）的节点
             s = s->lChild;
-    } else { //否则，直接后继应是 “将当前节点包含于基左子树中的最低祖先”，具体地就是
+    } else { //否则，直接后继应是 “将当前节点包含于其左子树中的最低祖先”，具体地就是
         while (IsRChild(*s))
             s = s->parent; //逆向地沿右向分支，不断朝左上方移动
 
         s = s->parent; //最后再朝右上方移动一步，即抵达直接后继（如果存在）
+    }
+
+    return s;
+}
+
+//习题 5-14
+//遍历能将半线性的二叉树转化为线性结构。于是指定遍历策略后，就能在节点间定义前驱和后继了。其中没有前驱（后继）的节点称作首（末）节点。
+template <typename T>
+BinNodePosi(T) BinNode<T>::pred() { //定位节点 v 的直接前驱
+    BinNodePosi(T) s = this; //记录前驱的临时变量
+
+    if (lChild) { //若有左孩子，则直接前继必在左子树中，具体地就是
+        s = lChild; //左子树中的
+        while (HasRChild(*s)) //最靠右（最大）的节点
+            s = s->rChild;
+    } else { //否则，直接前继应是 “将当前节点包含于其左子树中的最低祖先”，具体地就是
+        while (IsLChild(*s))
+            s = s->parent; //逆向地沿左向分支，不断朝右上方移动
+
+        s = s->parent; //最后再朝左上方移动一步，即抵达直接前驱（如果存在）
     }
 
     return s;
@@ -401,23 +422,21 @@ void travIn_I2(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法，�
 
     while( true ){
         if (p) { //沿最左侧通路自顶而下，将节点压入栈
-            S.push(x);
+            S.push(p);
             p = p->lChild;
         }
         else if (!S.empty()) {
             p = S.pop(); //尚未访问的最低祖先节点
             visit(p->data);
-            p = p->lChild; //遍历该节点的右子树
+            p = p->rChild; //遍历该节点的右子树
         }
         else 
             break;  //遍历完成
-        p = S.pop(); visit(p->data); //弹出栈顶节点并访问
-        p = p->rChild; //转向右子树
     }
 }
 
 template <typename T, typename VST>
-void travIn_I3(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法：版本版本 3, 无需辅助栈
+void travIn_I3(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法：版本 3, 无需辅助栈
     bool backtrack = false; //前一步是否刚从右子树回溯 -- 省去栈，仅 O(1) 辅助空间
                             //回溯回来的表示当前节点的左侧都已经访问过了
 
@@ -430,20 +449,38 @@ void travIn_I3(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法：�
                 p = p->rChild; //深入右子树继续遍历
                 backtrack = false; //并关闭回溯标志
             } else { // 若右子树为空，则
-                if (!(x=x->succ())) //后继为空，表示抵达了末节点
+                if (!(p=p->succ())) //后继为空，表示抵达了末节点
                     break;
                 backtrack = true; //并设置回溯标志
             }
         }
 }
 
-//将树 T 画在二维平面上，从左侧水平向右看云，未被遮挡的最高叶节点 v（称作最高左侧可见叶节点 HLVFL），即为后序遍历首先访问的节点，该节点可能是左孩子，也可能是右孩子（故用垂直边表示）。
+//习题 5-17
+template <typename T, typename VST>
+void travIn_I4(BinNodePosi(T) p, VST& visit) { //二叉树中序遍历算法：版本4,无需辅助栈和标记
+    while (true) {
+        if (HasLChild(*p))  //若有左子树，则
+            p = p->lChild;  //深入遍历左子树
+        else {              //否则
+            visit(p->data);  //访问当前节点，并
+            while (!HasRChild(*p))   //不断地在无右分支处
+                if (!(p=p->succ()))  //回溯至直接后继（在没有后继的末节点处，直接退出）
+                    return;
+                else
+                    visit(p->data);  //访问新的当前节点
+            p = p->rChild;           //直到有右分支处，转向非空的右子树
+        }
+    }
+}
+
+//将树 T 画在二维平面上，从左侧水平向右看去，未被遮挡的最高叶节点 v（称作最高左侧可见叶节点 HLVFL），即为后序遍历首先访问的节点，该节点可能是左孩子，也可能是右孩子（故用垂直边表示）。
 //沿着 v 与树根之间的通路自底而上，整个遍历也可分解为若干个片段。每一片段，分别起始于通路上的一个节点，并包括三步：访问当前节点，遍历以其右兄弟（若存在）为根的子树，最后向上回溯至其父节点（若存在）并转下下一片段
 template <typename T> //在以栈 S 顶节点为根的子树中，找到最高左侧可见叶节点
 static void gotoHLVFL(Stack<BinNodePosi(T)> & S) { //沿途所遇节点依次入栈
     while (BinNodePosi(T) p = S.top()) //自顶而下，反复检查当前节点（即栈顶）
         if (HasLChild(*p)) { //尽可能向左
-            if (HasRChild(*P))
+            if (HasRChild(*p))
                 S.push(p->rChild); //若有右孩子，优先入栈
             S.push(p->lChild); //然后才转至左孩子
         }
@@ -465,7 +502,7 @@ void travPost_I(BinNodePosi(T) p, VST& visit) { //二叉树的后序遍历（迭
             gotoHLVFL(S); //则此时以其右兄为根的子树中，找到 HLVFL
 
         p = S.pop(); //弹出该前一节点之后继，并访问
-        visit(x->data); 
+        visit(p->data); 
     }
 }
 
@@ -473,21 +510,17 @@ void travPost_I(BinNodePosi(T) p, VST& visit) { //二叉树的后序遍历（迭
 // 层次遍历
 //即先上后下，先左后右，借助队列实现。
 template <typename T, typename VST>
-void BinNode<T>::travLevel(VST& visit) { //二叉树层次遍历
+void travLevel(BinNodePosi(T) p, VST& visit) { //二叉树层次遍历
     Queue<BinNodePosi(T)> Q; //辅助队列
-    Q.enqueue(this); //根入队
+    Q.enqueue(p); //根入队
 
     while (!Q.empty()) {
         BinNodePosi(T) p = Q.dequeue(); visit(p->data); //取出队首节点并访问
 
-        if (HasLChild(*p)
+        if (HasLChild(*p))
                 Q.enqueue(p->lChild);
 
-        if (HasRChild(*p)
+        if (HasRChild(*p))
                 Q.enqueue(p->rChild);
     }
-}
-
-int main() {
-    cout << "hello" << endl;
 }
