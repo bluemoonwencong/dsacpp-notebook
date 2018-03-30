@@ -314,6 +314,15 @@ static void visitAlongLeftBranch(BinNodePosi(T) p, VST& visit, Stack<BinNodePosi
         if (p->rChild) //右孩子入栈暂存（优化：通过判断，避免空的右孩子入栈）
             S.push(p->rChild);
         
+
+        if (p)
+            swap(p->lChild, p->rChild);
+
+        if (p->lChild)
+            swap_pre_R(p->lChild);
+
+        if (p->rChild)
+            swap_pre_R(p->rChild);
         p = p->lChild; //沿左分支深入一层
     }
 }
@@ -522,5 +531,121 @@ void travLevel(BinNodePosi(T) p, VST& visit) { //二叉树层次遍历
 
         if (HasRChild(*p))
                 Q.enqueue(p->rChild);
+    }
+}
+
+
+//习题 5-23, 在 O(n) 时间内将二叉树中每一节点的左右孩子（其中之一可能为空）互换
+// 参考先序遍历的迭代版本
+template <typename T>
+void swap_pre_R(BinNodePosi(T) p) { //递归版本
+
+    if (p)
+        swap(p->lChild, p->rChild);
+
+    if (p->lChild)
+        swap_pre_R(p->lChild);
+
+    if (p->rChild)
+        swap_pre_R(p->rChild);
+}
+
+template <typename T>
+void swap_pre_I1(BinNodePosi(T) p) { //使用栈消除尾递归
+    Stack<BinNodePosi(T)> S;
+
+    if (p)
+        S.push(p);
+
+    while( !S.empty() ){
+        p = S.pop();
+        swap(p->lChild, p->rChild);
+
+        if (p->rChild)
+            S.push(p->rChild);
+
+        if (p->lChild)
+            S.push(p->lChild);
+    }
+}
+
+template <typename T>
+void swapAlongLeftBranch(BinNodePosi(T) p, Stack<BinNodePosi(T)>& S) {
+
+    while (p) {
+        swap(p->lChild, p->rChild);
+
+        if (p->rChild)
+            S.push(p->rChild);
+
+        p = p->lChild;
+    }
+}
+
+template <typename T>
+void swap_pre_I2(BinNodePosi(T) p) {
+    Stack<BinNodePosi(T)> S;
+
+    S.push(p);
+
+    while( !S.empty() ) {
+        p = S.pop();
+        swapAlongLeftBranch(p, S);
+    }
+}
+
+
+//习题 5-24
+// 在 O(1) 时间内判断所有节点的数值均不小于其真祖先的数值总和
+// 参考中序遍历算法
+template <typename T>
+bool node_ge_parents_In_R(BinNodePosi(T) p, Stack<BinNodePosi(T)> &S, int &parents_sum) { //参考二叉树中序遍历算法（递归版本）
+    if (!p)
+        return true;
+
+    if (p->data < parents_sum)
+        return false;
+
+    S.push(p);
+    parents_sum += S->data;
+
+    node_ge_parents_In_R(p->lChild, S, parents_sum);
+    node_ge_parents_In_R(p->rChild, S, parents_sum);
+}
+
+
+//习题 5-25
+// O(n) 内将每个节点的数值替换为其后代中的最大数值
+// 参考后序遍历
+#define MIN_T 0  //设 T 类型的最小值为 0
+template <typename T>
+T replace_as_children_largest_post_R(BinNodePosi(T) p) { //参考后序递归版本
+    if (!p)
+        return MIN_T;
+
+    T max_left = replace_as_children_largest_post_R(p->lChild);
+    T max_right = replace_as_children_largest_post_R(p->rChild);
+    p->data = max( p->data, max( max_left, max_right));
+    return p->data;
+}
+
+template <typename T>
+void replace_as_children_largest_post_I(BinNodePosi(T) p) { //参考后序迭代版本
+    Stack<BinNodePosi(T)> S;
+
+    if (p)
+        S.push(p);
+
+    while(!S.empty()) {
+        if (S.top() != p->parent) //若栈顶不是当前节点之父，则必为其右兄
+            gotoHLVFL(S); //则此时以其兄为根的子树中，找到 HLVFL
+
+        p = S.pop();
+
+        if (p->lChild && p->data < p->lChild->data)
+            p->data = p->lChild->data;
+        if (p->rChild && p->data < p->rChild->data)
+            p->data = p->rChild->data;
+
     }
 }
