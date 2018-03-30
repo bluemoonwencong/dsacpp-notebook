@@ -600,17 +600,6 @@ void swap_pre_I2(BinNodePosi(T) p) {
 // 参考中序遍历算法
 template <typename T>
 bool node_ge_parents_In_R(BinNodePosi(T) p, Stack<BinNodePosi(T)> &S, int &parents_sum) { //参考二叉树中序遍历算法（递归版本）
-    if (!p)
-        return true;
-
-    if (p->data < parents_sum)
-        return false;
-
-    S.push(p);
-    parents_sum += S->data;
-
-    node_ge_parents_In_R(p->lChild, S, parents_sum);
-    node_ge_parents_In_R(p->rChild, S, parents_sum);
 }
 
 
