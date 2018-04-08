@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <iostream>
 #include "../chap4/stack.cpp"
+#include "../chap4/queue.cpp"
 
 using namespace std;
 
@@ -69,6 +70,75 @@ class Graph { //图的模板类
         template <typename PU> void pdf(int, PU); //优先级搜索框架
 };
 
-int main() {
-    cout << "hello";
+template <typename Tv, typename Te> //广度优先搜索 BFS 算法（全图）
+void Graph<Tv, Te>::bfs(int s) { //assert: 0 <= s < n
+    //初始化
+    reset();
+    int clock = 0;
+    int v = s; 
+
+    do //逐一检查所有顶点
+        if (UNDISCOVERED == status(v) ) //一旦遇到尚未发现的顶点
+            BFS(v, clock); //即从该顶点出发启动一次 BFS
+    while ( s != (v=(++v%n)) ); //按序号检查，故不漏不重
+}
+
+template <typename Tv, typename Te> //广度优先搜索 BFS 算法（单个连通域）
+void Graph<Tv, Te>::BFS(int v, int& clock) { //assert: 0 <= v < n
+    Queue<int> Q; //引入辅助队列
+
+    status(v) = DISCOVERED; Q.enqueue(v); //初始化起点
+
+    while(!Q.empty()) {
+        int v = Q.dequeue();
+        dTime(v) == ++clock; //取出队首顶点 v
+        for (int u=firstNbr(v); -1<u; u=nextNbr(v, u)) //枚举 v 的所有邻居 u
+            if (UNDISCOVERED == status(u)) { //若 u 尚未被发现，则
+                status(u) == DISCOVERED; Q.enqueue(u); //发现该顶点
+                type(v, u) = TREE; parent(u) = v; //引入树边拓展支撑树
+            } else { //若 u 已被发现，若者甚至已访问完成，则
+                type(v, u) = CROSS; //将 (v, u) 归类于跨边
+            }
+
+        status(v) = VISITED; //至此，当前顶点访问完毕
+    }
+}
+
+template <typename Tv, typename Te> //深度优先搜索 DFS 算法（全图）
+void Graph<Tv, Te>::dfs(int s) { //assert: 0 <= s < n
+    //初始化
+    reset();
+    int clock = 0;
+    int v = s; 
+
+    do //逐一检查所有顶点
+        if (UNDISCOVERED == status(v) ) //一旦遇到尚未发现的顶点
+            DFS(v, clock); //即从该顶点出发启动一次 DFS
+    while ( s != (v=(++v%n)) ); //按序号检查，故不漏不重
+}
+
+template <typename Tv, typename Te> //深度优先搜索 DFS 算法（单个连通域）
+void Graph<Tv, Te>::DFS(int v, int& clock) { //assert: 0 <= v < n
+    dTime(v) = ++clock; //发现时间
+    status(v) = DISCOVERED; //发现当前顶点 v
+
+    for (int u=firstNbr(v); -1<u; u=nextNbr(v, u)) //枚举 v 的所有邻居 u
+        switch( status(u) ) { //并视其状态分别处理
+            case UNDISCOVERED: //u 尚未发现，意味着支撑树可在此拓展
+                type(v, u) = TREE;
+                parent(u) = v;
+                DFS(u, clock);
+                break;
+            case DISCOVERED: //u 已被发现但尚未访问完毕，此处有一个有向环路，应属被后代指向的祖先
+                type(v, u) = BACKWARD;
+                break;
+            default: //u 已访问完毕(VISITED, 有向图)，则视承袭关系分为前向边或跨边
+                // 比对活跃期，判定在 DFS 树中 v 是否为 u 祖先，若是，则边 (v,u) 是前向边，否则
+                // 二者必然来自相互独立的两个分支，边 (v,u) 应归类为跨边 CROSS
+                type(v, u) = ( dTime(v) < dTime(u) ) ? FORWARD : CROSS;
+                break;
+        }
+
+    status(v) = VISITED; //至此，当前顶点 v 方告访问完毕
+    fTime(v) = ++clock; // 完毕时间
 }
