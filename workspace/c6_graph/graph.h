@@ -31,7 +31,7 @@ class Graph { //图的模板类
         void BFS(int, int&); //（连通域）广度优先搜索算法
         void DFS(int, int&); //（连通域）深度优先搜索算法
         void BCC(int, int&, Stack<int>&); //（连通域）基于 DFS 的双连通分量分解算法
-        bool TSort(int, int&, Stack<Tv>*); //(连通域）基于 DFS 的拓扑排序算法
+        bool TSort_DFS(int, int&, Stack<Tv>*); //(连通域）基于 DFS 的拓扑排序算法
         template <typename PU> void PFS(int, PU); //（连通域）优先级搜索框架
 
     public:
@@ -64,7 +64,7 @@ class Graph { //图的模板类
         void bfs(int); //广度优先搜索算法
         void dfs(int); //深度优先搜索算法
         void bcc(int); //基于 DFS 的双连通分量分解算法
-        Stack<Tv>* tSort(int); //基于 DFS 的拓扑排序算法
+        Stack<Tv>* tSort_DFS(int); //基于 DFS 的拓扑排序算法
         void prim (int); //最小支撑树 prim 算法
         void dijkstra (int); //最短路径 Dijkstra 算法
         template <typename PU> void pdf(int, PU); //优先级搜索框架
@@ -141,4 +141,52 @@ void Graph<Tv, Te>::DFS(int v, int& clock) { //assert: 0 <= v < n
 
     status(v) = VISITED; //至此，当前顶点 v 方告访问完毕
     fTime(v) = ++clock; // 完毕时间
+}
+
+
+/* 基于 DFS 的拓扑排序
+在深度优先搜索过程中，首先因访问完成而转换到 VISITED 状态的顶点 m，必然是出度为 0 的顶点，该顶点在此后的搜索过程中也不再起任何作用，于是下一转换至 VISITED 状态的顶点也可等效地理解为是从图中剔除 m （及其边）之后的出度为 0 者，在拓扑排序中，该顶点应为顶点 m 的前驱。DFS 搜索过程中各顶点被标记为 VISITED 的次序，恰好（逆序）给出了原图的一个拓扑排序。此外，DFS 搜索中一旦发现有边为 BACKWARD，则表示有环路，从而可立即终止算法并报告 “因非 DAG 而无法拓扑排序。
+*/
+template <typename Tv, typename Te> //基于 DFS 的拓扑排序算法
+Stack<Tv>* Graph<Tv, Te>::tSort_DFS(int s) { //assert: 0 <= s < n
+    reset();
+    int clock = 0;
+    int v = s;
+    Stack<Tv>* S = new Stack<Tv>; //用栈记录排序顶点
+
+    do {
+        if (UNDISCOVERED == status(v))
+            if (!TSort_DFS(v, clock, S)) { // clock 并非必需
+                while (!S->empty()) //任一连通域（亦即整图）非 DAG，则不必继续计算，直接返回
+                    S->pop();
+                break;
+            }
+    } while (s != (v=(++v % n)));
+
+    return S; //若输入为 DAG，则 S 内各顶点自顶向底排序; 否则（不存在拓扑排序），为空
+}
+
+template <typename Tv, typename Te> //基于 DFS 的拓扑排序算法（单趟）
+bool Graph<Tv, Te>::TSort_DFS(int v, int& clock, Stack<Tv>* S) { //assert: 0 <= v < n
+    dTime = ++clock;
+    status(v) = DISCOVERED; //发现顶点 v
+    for (int u=firstNbr(v); -1 < u; u = nextNbr(v, u)) //枚举 v 所有邻居 u
+        switch(status(u)) { //并视 u 的状态分别处理
+            case UNDISCOVERED:
+                parent(u) = v;
+                status(v, u) = TREE;
+                if (!TSort_DFS(u, clock, S)) //从顶点 u 处出发深入搜索
+                    return false; //若 u 及其后代不能拓扑排序（则全图也如此）
+                break;
+            case DISCOVERED:
+                status(v, u) = BACKWARD; //一旦发现后向边（非 DAG），则
+                return false; //不必深入
+            default: //VISITED (digraphs only)
+                status(v, u) = (dTime(v) < dTime(u)) ? FORWARD : CROSS;
+                break;
+        }
+
+    status(v) = VISITED;
+    S->push(vertex(v)); //顶点被标记为 VISITED; 并入栈
+    return true; //v 及后代可拓扑排序
 }
