@@ -190,3 +190,63 @@ bool Graph<Tv, Te>::TSort_DFS(int v, int& clock, Stack<Tv>* S) { //assert: 0 <= 
     S->push(vertex(v)); //顶点被标记为 VISITED; 并入栈
     return true; //v 及后代可拓扑排序
 }
+
+
+/*
+双连通域分解算法
+关节点删除后，图中的双连通域会增加。
+
++ 叶节点： 在 DFS 树中，叶节点绝不可能是原图中的关节点，此类顶点的删除即不影响 DFS 树的连通性，也不影响原图的连通性。
++ 根节点： 若 DFS 树的根节点有至少两个分支，则必为一个关节点。
++ 内部节点： 如下图中，若节点 C 的移除导致其某一真子树（如 D 为根的树）与其真祖先之间无法连通，则 C 必为关节点。反之，若 C 的所有真子树都能与 C 的某一真祖先连通，则 C 就不可能为关节点。在无向图的 DFS 树中， C 的真子树只能通过 **backward** 边与 C 的真祖先连通。因此，只要在 DFS 搜索中记录并更新各顶点 v 所能（经由 backward 边）连通的最高祖先(highest connected ancestor, HAC)，即可及时认定关节点。
+*/
+template <typename Tv, typename Te>
+void Graph<Tv, Te>::bcc(int s) { //基于 DFS 的 BCC 分解算法
+    reset();
+    int clock = 0;
+    int v = s;
+    Stack<int> S; //栈 S 用于记录已访问的顶点
+
+    do 
+        if (UNDISCOVERED == status(v)) { //一旦找到有未发现的顶点（新连通分量）
+            BCC( v, clock, S); //即从该顶点出发启动一次 BCC
+            S.pop(); //遍历返回后，弹出栈中最后一个顶点---当前连通域的起点
+        }
+    while ( s != (v=(++v % n)) );
+}
+
+#define hca(x) (fTime(x)) //利用此处闲置的 fTime[] 充当 hca[]
+
+template <typename Tv, typename Te>
+void Graph<Tv, Te>::BCC(int v, int& clock, Stack<int>& S) {
+    hca(v) = dTime(v) = ++clock;
+    status(v) = DISCOVERED;
+    S.push(v); // v 被发现并入栈
+    for (int u = firstNbr(v); -1 < u; u = nextNbr(v, u)) //枚举 v  的所有邻居 u
+        switch( status(u) ) { //并视 u 的状态分别处理
+            case UNDISCOVERED:
+                parent(u) = v;
+                type(v, u) = TREE;
+                BCC(u, clock, S); //从顶点 u 处深入
+
+                if (hca(u) < dTime(v)) //遍历返回后，若发现 u（通过后向边）可指向 v 的真祖先
+                    hca(v) = min(hca(v), hca(u)); //则 v 亦必如此
+                else { //否则，以 v 为关节点（u 以下即是一个 BCC，且其中顶点此时正集中于栈 S 的顶部）
+                    while ( v != S.pop() ) //依次弹出当前 BCC 中的节点，亦可根据实际需求转存至其它结构
+                        /*pass*/;
+                    S.push(v); //最后一个顶点（关节点）重新入栈---总计至多两次
+                }
+                break;
+            case DISCOVERED:
+                type(v, u) = BACKWARD; //标记(v, u), 并按照 “越小越高” 的准则
+                if (u != parent(v))
+                    hca(v) = min(hca(v), dTime(u)); //更新 hca[v]
+                break;
+            default: //VISITED（有向图）
+                type(v, u) = (dTime(v) < dTime(u)) ? FORWARD:CROSS;
+                break;
+        }
+    status(v) = VISITED; //对 v 的访问结束
+}
+
+#undef hca
