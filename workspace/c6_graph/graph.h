@@ -250,3 +250,64 @@ void Graph<Tv, Te>::BCC(int v, int& clock, Stack<int>& S) {
 }
 
 #undef hca
+
+//优先级搜索基本框架
+template <typename Tv, typename Te> template <typename PU> //优先级搜索（全图）
+void Graph<Tv, Te>::pfs( int s, PU prioUpdate){ //assert: 0 <= s < n
+    reset(); int v = s; //初始化
+
+    do //逐一检查所有顶点
+        if (UNDISCOVERED == status(v)) //一旦遇到尚未发现的顶点
+            PFS(v, prioUpdate); //即从该顶点出发启动一次 PFS
+    while (s != (v=(++v % n))); //按序号检查，故不漏不重
+}
+
+template <typename Tv, typename Te> template <typename PU> //顶点，边，优先级更新器
+void Graph<Tv, Te>::PFS(int v, PU prioUpdate){ //优先级搜索（单个连通域）
+    //初始化
+    priority(v) = 0;
+    status(v) = VISITED;
+    parent(v) = -1; //起点 v 加至 PFS 树中
+
+    while(1) { //将下一顶点和边加至 PFS 树中
+        for (int u=firstNbr(v); -1<u; u=nextNbr(v,u)) //枚举 v 的所有邻居
+            prioUpdate(this, v, u); //更新顶点 u 的优先级及其父顶点
+
+        //从尚未加入遍历树的顶点中选出一个优先级最高的顶点 v
+        for (int shortest = INT_MAX, u=0; u<n; u++) //n 为顶点总数
+            if (UNDISCOVERED == status(u))
+                if (shortest > priority(u)) {
+                    shortest = priority(u);
+                    v = u;
+                }
+
+        if (VISITED == status(v)) //直到所有顶点均已加入
+            break;
+
+        status(v) = VISITED; //将 v 及其父的联边加入遍历树
+        type(parent(v), v) = TREE;
+    }
+} //通过定义具体的优先级更新策略prioUpdate, 即可实现不同的算法功能
+
+
+//最小支撑树 Prim 算法
+template <typename Tv, typename Te> struct PrimPU { //针对 Prim 算法的顶点优先级更新器
+    virtual void operator() (Graph<Tv, Te>* g, int v, int u) {
+        if (UNDISCOVERED == g->status(u)) //对于 v 的每一尚未发现的邻接顶点 u
+            if (g->priority(u) > g->weight(v, u)) { //按 Prim 策略做松弛
+                g->priority(u) = g->weight(v, u); //更新优先级（数）
+                g->parent(u) = v; //更新父节点
+            }
+    }
+};
+
+//最短路径 Dijkstra 算法
+template <typename Tv, typename Te> struct DijkstraPU { //针对 Dijkstra 算法的顶点优先级更新器
+    virtual void operator() (Graph<Tv, Te>* g, int v, int u){
+        if (UNDISCOVERED == g->status(u)) //对于 v 每一尚未被发现的邻接顶点 u, 按 Dijkstra 策略
+            if (g->priority(u) > g->priority(v)+g->weight(v,u)) { //做松弛
+                g->priority(u) = g->priority(v) + g->weight(v, u); //更新优先级（数）
+                g->parent(u) = v; //并同时更新父节点
+            }
+    }
+};
